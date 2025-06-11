@@ -1,0 +1,46 @@
+{
+  "name": "melodi-cli",
+  "version": "1.0.0",
+  "description": "A cleaner tune for iModel work",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node dist/index.js"
+  },
+  "bin": {
+    "melodi": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rschili/melodi-cli.git"
+  },
+  "keywords": [
+    "itwin",
+    "imodel",
+    "bentley",
+    "ecdb",
+    "bim"
+  ],
+  "author": "Robert Schili",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rschili/melodi-cli/issues"
+  },
+  "homepage": "https://github.com/rschili/melodi-cli#readme",
+  "devDependencies": {
+    "@types/figlet": "^1.7.0",
+    "@types/node": "^24.0.1",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "figlet": "^1.8.1"
+  }
+}
