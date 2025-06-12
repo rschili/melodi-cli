@@ -2,15 +2,23 @@
 import { select, Separator } from '@inquirer/prompts';
 import chalk from "chalk";
 import Listr, { ListrOptions } from 'listr';
+import { Environment } from "./Interfaces";
+import { detectWorkspace, WorkspaceProps } from "./Workspace";
+import { applicationVersion } from "./Diagnostics";
 
-export enum Environment {
-    PROD = 'PROD',
-    QA = 'QA',
-    DEV = 'DEV',
-}
 
 export class Runner {
     public async run(): Promise<void> {
+        const workspace: WorkspaceProps = await detectWorkspace();
+
+        const activeMelodiVersion = applicationVersion;
+        if(workspace.config !== undefined) {
+            console.log(chalk.white(`Detected workspace at: ${workspace.workspaceRootPath}`));
+            console.log(chalk.white(`Workspace is using environment: ${workspace.config.environment}`));
+            if(workspace.config.melodiVersion !== activeMelodiVersion) {
+                console.log(chalk.blueBright(`The workspace was saved using a different version of melodi (${workspace.config.melodiVersion}) than the active version (${activeMelodiVersion}).`));
+            }
+        }
 
         const environment: Environment = await select({
             message: 'Select an environment',

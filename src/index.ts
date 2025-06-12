@@ -2,6 +2,7 @@
 
 import chalk from 'chalk';
 import { Runner } from "./Runner";
+import { applicationVersion } from "./Diagnostics";
 
 console.log(
 `                     _               _   _ 
@@ -12,7 +13,7 @@ console.log(
 --------------------------------------------------
   A gentle tune that makes iModels sing and sound.
 --------------------------------------------------`);
-console.log(chalk.blueBright(''));
+console.log(chalk.blueBright(`v${applicationVersion}`));
 
 const runner = new Runner();
 runner.run()
