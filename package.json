@@ -1,7 +1,7 @@
 {
   "name": "melodi-cli",
   "version": "1.0.0",
-  "description": "A cleaner tune for iModel work",
+  "description": "A gentle tune that makes iModels sing and sound.",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
