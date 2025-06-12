@@ -21,9 +21,9 @@ link:
 	npm link
 
 unlink:
-	npm unlink melodi-cli
+	npm unlink @rschili/melodi-cli
 
 remove:
-	npm rm -g melodi-cli
+	npm rm -g @rschili/melodi-cli
 
 

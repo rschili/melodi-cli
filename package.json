@@ -1,5 +1,5 @@
 {
-  "name": "melodi-cli",
+  "name": "@rschili/melodi-cli",
   "version": "1.0.0",
   "description": "A gentle tune that makes iModels sing and sound.",
   "main": "dist/index.js",
@@ -9,7 +9,7 @@
     "start": "node dist/index.js"
   },
   "bin": {
-    "melodi": "./dist/index.js"
+    "melodi": "dist/index.js"
   },
   "files": [
     "dist",
