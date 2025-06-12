@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 
 import chalk from 'chalk';
-import figlet from 'figlet';
-import readline from 'readline';
 import { Runner } from "./Runner";
 
-const banner = figlet.textSync('melodi', {
-  horizontalLayout: 'full',
-  verticalLayout: 'default'
-});
-console.log(banner + " CLI");
-console.log();
-console.log(chalk.blueBright('A gentle tune that makes iModels sing and sound.'));
+console.log(
+`                     _               _   _ 
+  _ __ ___     ___  | |   ___     __| | (_)
+ | '_ \` _ \\   / _ \\ | |  / _ \\   / _\` | | |
+ | | | | | | |  __/ | | | (_) | | (_| | | |
+ |_| |_| |_|  \\___| |_|  \\___/   \\__,_| |_| CLI
+--------------------------------------------------
+  A gentle tune that makes iModels sing and sound.
+--------------------------------------------------`);
+console.log(chalk.blueBright(''));
 
 const runner = new Runner();
 runner.run()
