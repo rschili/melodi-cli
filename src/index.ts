@@ -3,8 +3,9 @@
 import chalk from 'chalk';
 import { Runner } from "./Runner";
 import { applicationVersion } from "./Diagnostics";
+import gradient from "gradient-string";
 
-console.log(
+const banner =
 `                     _               _   _ 
   _ __ ___     ___  | |   ___     __| | (_)
  | '_ \` _ \\   / _ \\ | |  / _ \\   / _\` | | |
@@ -12,7 +13,8 @@ console.log(
  |_| |_| |_|  \\___| |_|  \\___/   \\__,_| |_| CLI
 --------------------------------------------------
   A gentle tune that makes iModels sing and sound.
---------------------------------------------------`);
+--------------------------------------------------`;
+console.log(gradient(['cyan','white']).multiline(banner));
 console.log(chalk.blueBright(`v${applicationVersion}`));
 
 const runner = new Runner();
