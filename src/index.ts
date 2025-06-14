@@ -23,7 +23,7 @@ runner.run()
     console.log(chalk.green('Process completed successfully!'));
     process.exit(0);
   })
-  .catch((error: any) => {
-    console.error(chalk.red('An error occurred:'), error);
+  .catch((error: Error) => {
+    console.error(chalk.red('An error occurred:'), error.message);
     process.exit(1);
   });

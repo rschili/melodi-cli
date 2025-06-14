@@ -9,3 +9,9 @@ export enum Environment {
     QA = 'QA',
     DEV = 'DEV',
 }
+
+export enum WorkspaceType {
+    BRIEFCASE = 'Briefcase',
+    ECDB = 'ECDb',
+    STANDALONE = 'Standalone',
+}

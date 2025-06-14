@@ -37,15 +37,15 @@ export class Runner {
             const tasks = new Listr([
                 {
                     title: 'Checking git status',
-                    task: () => this.runFor5Seconds(true)
+                    task: () => this.runFor2Seconds(true)
                 },
                 {
                     title: 'Checking remote history',
-                    task: () => this.runFor5Seconds(true)
+                    task: () => this.runFor2Seconds(true)
                 },
                 {
                     title: 'Publish package',
-                    task: () => this.runFor5Seconds(false)
+                    task: () => this.runFor2Seconds(false)
                 }
             ]);
 
@@ -56,12 +56,12 @@ export class Runner {
             // print collected logs
             if( buffer.length > 0) {
                 console.log(chalk.white('Collected logs:'));
-                buffer.forEach(log => console.log("\t\t" + chalk.gray(log)));
+                buffer.forEach(log => console.log("\t" + chalk.gray(log)));
             }
         }
     }
 
-    private async runFor5Seconds(succeed: boolean): Promise<void> {
+    private async runFor2Seconds(succeed: boolean): Promise<void> {
         return new Promise((resolve, reject) => {
             let seconds = 0;
             const interval = setInterval(() => {
@@ -76,7 +76,7 @@ export class Runner {
                 } else {
                     reject(new Error('Task failed after 5 seconds'));
                 }
-            }, 5000);
+            }, 2000);
         });
     }
 }
