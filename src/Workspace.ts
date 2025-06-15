@@ -1,9 +1,10 @@
 import * as fs from 'fs';
 import path from "path";
+import os from "os";
 import { z } from "zod/v4";
 import { Environment, WorkspaceType } from "./Interfaces";
 
-export interface ConfigProps {
+export interface WorkspaceConfigProps {
     type: WorkspaceType;
     melodiVersion: string;
 }
@@ -16,10 +17,9 @@ const BriefcaseConfigSchema = z.object({
 
 export type BriefcaseConfigProps = z.infer<typeof BriefcaseConfigSchema>;
 
-export function isBriefcaseConfig(config: ConfigProps): config is BriefcaseConfigProps {
+export function isBriefcaseConfig(config: WorkspaceConfigProps): config is BriefcaseConfigProps {
     return config.type === WorkspaceType.BRIEFCASE;
 }
-
 
 const ECDbConfigSchema = z.object({
     type: z.enum([WorkspaceType.ECDB]),
@@ -29,7 +29,7 @@ const ECDbConfigSchema = z.object({
 
 export type ECDbConfigProps = z.infer<typeof ECDbConfigSchema>;
 
-export function isECDbConfig(config: ConfigProps): config is ECDbConfigProps {
+export function isECDbConfig(config: WorkspaceConfigProps): config is ECDbConfigProps {
     return config.type === WorkspaceType.ECDB;
 }
 
@@ -40,25 +40,28 @@ const StandaloneConfigSchema = z.object({
 });
 export type StandaloneConfigProps = z.infer<typeof StandaloneConfigSchema>;
 
-export function isStandaloneConfig(config: ConfigProps): config is StandaloneConfigProps {
+export function isStandaloneConfig(config: WorkspaceConfigProps): config is StandaloneConfigProps {
     return config.type === WorkspaceType.STANDALONE;
 }
 
 export interface WorkspaceProps {
     workspaceRootPath: string;
-    melodiPath: string;
-    config?: ConfigProps;
+    workspaceConfigDirPath: string;
+    userConfigDirPath: string;
+    config?: WorkspaceConfigProps;
 }
 
 export async function detectWorkspace(): Promise<WorkspaceProps> {
     // check if there is a ".melodi" subdirectory in the current working directory
     const melodiConfigFolder = '.melodi';
     const workspaceRootPath = process.cwd();
+    const userConfigDirPath = path.join(os.homedir(), melodiConfigFolder)
     const melodiConfigPath = path.join(workspaceRootPath, melodiConfigFolder);
     if (!fs.existsSync(workspaceRootPath) || !fs.lstatSync(workspaceRootPath).isDirectory()) {
         return {
+            userConfigDirPath,
             workspaceRootPath,
-            melodiPath: melodiConfigPath,
+            workspaceConfigDirPath: melodiConfigPath,
         };
     }
 
@@ -66,21 +69,28 @@ export async function detectWorkspace(): Promise<WorkspaceProps> {
     const configPath = path.join(melodiConfigPath, configFileName);
     if (!fs.existsSync(configPath)) {
         return {
+            userConfigDirPath,
             workspaceRootPath,
-            melodiPath: melodiConfigPath,
+            workspaceConfigDirPath: melodiConfigPath,
         };
     }
 
-    const config = await readMelodiConfig(configPath);
+    const config = await readWorkspaceConfig(configPath);
+    // create the user config directory if it doesn't exist
+    if (!fs.existsSync(userConfigDirPath)) {
+        await fs.promises.mkdir(userConfigDirPath, { recursive: true });
+    }
+
     return {
+        userConfigDirPath,
         workspaceRootPath,
-        melodiPath: melodiConfigPath,
+        workspaceConfigDirPath: melodiConfigPath,
         config,
     };
 }
 
 // Read and validate config
-export async function readMelodiConfig(configPath: string): Promise<ConfigProps> {
+export async function readWorkspaceConfig(configPath: string): Promise<WorkspaceConfigProps> {
     const data = await fs.promises.readFile(configPath, 'utf-8');
     const json = JSON.parse(data);
     const type = json.type;
@@ -96,7 +106,7 @@ export async function readMelodiConfig(configPath: string): Promise<ConfigProps>
 }
 
 // Save config (overwrite)
-export async function saveMelodiConfig(configPath: string, config: ConfigProps): Promise<void> {
+export async function saveWorkspaceConfig(configPath: string, config: WorkspaceConfigProps): Promise<void> {
     const data = JSON.stringify(config, undefined, 2);
     await fs.promises.writeFile(configPath, data, 'utf-8');
 }

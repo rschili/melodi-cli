@@ -6,14 +6,14 @@ import { applicationVersion } from "./Diagnostics";
 import gradient from "gradient-string";
 
 const banner =
-`                     _               _   _ 
-  _ __ ___     ___  | |   ___     __| | (_)
- | '_ \` _ \\   / _ \\ | |  / _ \\   / _\` | | |
- | | | | | | |  __/ | | | (_) | | (_| | | |
- |_| |_| |_|  \\___| |_|  \\___/   \\__,_| |_| CLI
---------------------------------------------------
-  A gentle tune that makes iModels sing and sound.
---------------------------------------------------`;
+`                      _               _   _ 
+   _ __ ___     ___  | |   ___     __| | (_)
+  | '_ \` _ \\   / _ \\ | |  / _ \\   / _\` | | |
+  | | | | | | |  __/ | | | (_) | | (_| | | |
+  |_| |_| |_|  \\___| |_|  \\___/   \\__,_| |_| CLI
+------------------------------------------------------
+          iModel repository utility
+------------------------------------------------------`;
 console.log(gradient(['cyan','white']).multiline(banner));
 console.log(chalk.blueBright(`v${applicationVersion}`));
 

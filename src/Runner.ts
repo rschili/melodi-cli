@@ -1,23 +1,31 @@
 
-import { select, Separator } from '@inquirer/prompts';
+import { select, confirm } from '@inquirer/prompts';
 import chalk from "chalk";
-import Listr, { ListrOptions } from 'listr';
+import Listr from 'listr';
 import { Environment } from "./Interfaces";
 import { detectWorkspace, WorkspaceProps } from "./Workspace";
 import { applicationVersion } from "./Diagnostics";
+import { Initialize } from "./Logic/Initialize";
 
 
 export class Runner {
     public async run(): Promise<void> {
         const workspace: WorkspaceProps = await detectWorkspace();
-
         const activeMelodiVersion = applicationVersion;
+
+        console.log(`User settings directory: ${workspace.userConfigDirPath}`);
         if(workspace.config !== undefined) {
-            console.log(chalk.white(`Detected workspace at: ${workspace.workspaceRootPath}`));
-            console.log(chalk.white(`Workspace is using environment: ${workspace.config.environment}`));
+            console.log(`Detected workspace at: ${workspace.workspaceRootPath}`);
             if(workspace.config.melodiVersion !== activeMelodiVersion) {
-                console.log(chalk.blueBright(`The workspace was saved using a different version of melodi (${workspace.config.melodiVersion}) than the active version (${activeMelodiVersion}).`));
+                console.log(chalk.blueBright(`The workspace was saved using a different version of melodi (${workspace.config.melodiVersion}). Running version (${activeMelodiVersion}).`));
             }
+        } else {
+            console.log(chalk.yellowBright(`No workspace configuration found.`));
+            const init = await confirm({ message: `Do you want to initialize a new workspace at ${chalk.bgBlueBright(workspace.workspaceRootPath)}?` });
+            if(!init)
+                return;
+
+        Initialize.run(workspace);
         }
 
         const environment: Environment = await select({
