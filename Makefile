@@ -26,4 +26,6 @@ unlink:
 remove:
 	npm rm -g @rschili/melodi-cli
 
+check-updates:
+	ncu
 

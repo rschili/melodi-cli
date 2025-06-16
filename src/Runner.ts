@@ -1,11 +1,12 @@
 
 import { select, confirm } from '@inquirer/prompts';
-import chalk from "chalk";
 import Listr from 'listr';
 import { Environment } from "./Interfaces";
 import { detectWorkspace, WorkspaceProps } from "./Workspace";
 import { applicationVersion } from "./Diagnostics";
 import { Initialize } from "./Logic/Initialize";
+import { LogBuffer } from "./LogBuffer";
+import { formatPath, formatWarning } from "./ConsoleFormatter";
 
 
 export class Runner {
@@ -13,34 +14,26 @@ export class Runner {
         const workspace: WorkspaceProps = await detectWorkspace();
         const activeMelodiVersion = applicationVersion;
 
-        console.log(`User settings directory: ${workspace.userConfigDirPath}`);
+        console.log(`User settings directory: ${formatPath(workspace.userConfigDirPath)}`);
         if(workspace.config !== undefined) {
-            console.log(`Detected workspace at: ${workspace.workspaceRootPath}`);
+            console.log(`Detected workspace at: ${formatPath(workspace.workspaceRootPath)}`);
             if(workspace.config.melodiVersion !== activeMelodiVersion) {
-                console.log(chalk.blueBright(`The workspace was saved using a different version of melodi (${workspace.config.melodiVersion}). Running version (${activeMelodiVersion}).`));
+                console.log(formatWarning(`The workspace was saved using a different version of melodi (${workspace.config.melodiVersion}). Running version (${activeMelodiVersion}).`));
             }
         } else {
-            console.log(chalk.yellowBright(`No workspace configuration found.`));
-            const init = await confirm({ message: `Do you want to initialize a new workspace at ${chalk.bgBlueBright(workspace.workspaceRootPath)}?` });
+            console.log(`No workspace configuration found.`);
+            const init = await confirm({ message: `Do you want to initialize a new workspace at ${formatPath(workspace.workspaceRootPath)}?` });
             if(!init)
                 return;
 
         Initialize.run(workspace);
         }
 
-        const environment: Environment = await select({
-            message: 'Select an environment',
-            choices: [Environment.PROD, Environment.QA, Environment.DEV],
-        });
-
-        console.log(`Selected environment: ${environment}`);
-
         // collect nested logs
-        const buffer: string[] = [];
-        const originalLog = console.log;
-        console.log = (...args) => buffer.push(args.join(' '));
+        var logger = new LogBuffer();
 
         try {
+            logger.start();
 
             const tasks = new Listr([
                 {
@@ -59,13 +52,7 @@ export class Runner {
 
             await tasks.run();
         } finally {
-            // restore original console.log
-            console.log = originalLog;
-            // print collected logs
-            if( buffer.length > 0) {
-                console.log(chalk.white('Collected logs:'));
-                buffer.forEach(log => console.log("\t" + chalk.gray(log)));
-            }
+            logger.restorePrintAndClear();
         }
     }
 

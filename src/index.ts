@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import chalk from 'chalk';
 import { Runner } from "./Runner";
 import { applicationVersion } from "./Diagnostics";
 import gradient from "gradient-string";
+import { formatError, formatSuccess } from "./ConsoleFormatter";
 
 const banner =
 `                      _               _   _ 
@@ -15,15 +15,15 @@ const banner =
           iModel repository utility
 ------------------------------------------------------`;
 console.log(gradient(['cyan','white']).multiline(banner));
-console.log(chalk.blueBright(`v${applicationVersion}`));
+console.log(formatSuccess(`v${applicationVersion}`));
 
 const runner = new Runner();
 runner.run()
   .then(() => {
-    console.log(chalk.green('Process completed successfully!'));
+    console.log(formatSuccess('Process completed successfully!'));
     process.exit(0);
   })
   .catch((error: Error) => {
-    console.error(chalk.red('An error occurred:'), error.message);
+    console.error(formatError('An error occurred:'), error.message);
     process.exit(1);
   });

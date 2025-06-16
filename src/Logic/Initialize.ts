@@ -61,6 +61,8 @@ export class Initialize {
             redirectUri: "http://localhost:3000/signin-callback",
             scope: "itwin-platform"
         });
+
+        
         await authClient.signIn();
 
         const getTokenCallback = async () => {
