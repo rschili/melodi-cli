@@ -28,50 +28,5 @@ export class Runner {
 
         Initialize.run(workspace);
         }
-
-        // collect nested logs
-        var logger = new LogBuffer();
-
-        try {
-            logger.start();
-
-            const tasks = new Listr([
-                {
-                    title: 'Checking git status',
-                    task: () => this.runFor2Seconds(true)
-                },
-                {
-                    title: 'Checking remote history',
-                    task: () => this.runFor2Seconds(true)
-                },
-                {
-                    title: 'Publish package',
-                    task: () => this.runFor2Seconds(false)
-                }
-            ]);
-
-            await tasks.run();
-        } finally {
-            logger.restorePrintAndClear();
-        }
-    }
-
-    private async runFor2Seconds(succeed: boolean): Promise<void> {
-        return new Promise((resolve, reject) => {
-            let seconds = 0;
-            const interval = setInterval(() => {
-                seconds++;
-                console.log(`Running... (${seconds}s)`);
-            }, 1000);
-    
-            setTimeout(() => {
-                clearInterval(interval);
-                if (succeed) {
-                    resolve();
-                } else {
-                    reject(new Error('Task failed after 5 seconds'));
-                }
-            }, 2000);
-        });
     }
 }

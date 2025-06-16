@@ -18,6 +18,9 @@ import {
   StrategyClientStorage,
 } from "@itwin/object-storage-core";
 import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-authoring";
+import { LogBuffer } from "../LogBuffer";
+import Listr from "listr";
+import { withTimeout } from "../PromiseHelper";
 
 export class Initialize {
     public static async run(props: WorkspaceProps): Promise<void> {
@@ -62,8 +65,24 @@ export class Initialize {
             scope: "itwin-platform"
         });
 
-        
-        await authClient.signIn();
+
+        // collect nested logs
+        var logger = new LogBuffer();
+
+        try {
+            logger.start();
+
+            const tasks = new Listr([
+                {
+                    title: 'Signing in (please check for a browser window)',
+                    task: () => withTimeout(() => authClient.signIn(), 30),
+                },
+            ]);
+
+            await tasks.run();
+        } finally {
+            logger.restorePrintAndClear();
+        }
 
         const getTokenCallback = async () => {
             const parts = (await authClient.getAccessToken()).split(" ");
