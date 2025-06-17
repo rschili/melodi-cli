@@ -3,7 +3,7 @@
 import { Runner } from "./Runner";
 import { applicationVersion } from "./Diagnostics";
 import gradient from "gradient-string";
-import { formatError, formatSuccess } from "./ConsoleFormatter";
+import { formatError, formatSuccess, printError } from "./ConsoleFormatter";
 
 const banner =
 `                      _               _   _ 
@@ -23,7 +23,7 @@ runner.run()
     console.log(formatSuccess('Process completed successfully!'));
     process.exit(0);
   })
-  .catch((error: Error) => {
-    console.error(formatError('An error occurred:'), error.message);
+  .catch((error: unknown) => {
+    printError(error);
     process.exit(1);
   });

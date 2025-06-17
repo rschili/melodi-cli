@@ -26,7 +26,7 @@ export class Runner {
             if(!init)
                 return;
 
-        Initialize.run(workspace);
+        await Initialize.run(workspace);
         }
     }
 }

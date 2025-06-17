@@ -1,26 +1,16 @@
-import { select } from "@inquirer/prompts";
+import { select, input } from "@inquirer/prompts";
 import { Environment, WorkspaceType } from "../Interfaces";
 import { WorkspaceProps } from "../Workspace";
 import { NodeCliAuthorizationClient } from "@itwin/node-cli-authorization";
-import {
-  GoogleClientStorage
-} from "@itwin/object-storage-google/lib/client";
-import {
-  ClientStorageWrapperFactory,
-} from "@itwin/object-storage-google/lib/client/wrappers";
-
-import {
-  AzureClientStorage,
-  BlockBlobClientWrapperFactory,
-} from "@itwin/object-storage-azure";
-import {
-  ClientStorage,
-  StrategyClientStorage,
-} from "@itwin/object-storage-core";
+import { GoogleClientStorage } from "@itwin/object-storage-google/lib/client";
+import { ClientStorageWrapperFactory } from "@itwin/object-storage-google/lib/client/wrappers";
+import { AzureClientStorage, BlockBlobClientWrapperFactory } from "@itwin/object-storage-azure";
+import { ClientStorage, StrategyClientStorage} from "@itwin/object-storage-core";
 import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-authoring";
 import { LogBuffer } from "../LogBuffer";
 import Listr from "listr";
 import { withTimeout } from "../PromiseHelper";
+import { formatError, printError } from "../ConsoleFormatter";
 
 export class Initialize {
     public static async run(props: WorkspaceProps): Promise<void> {
@@ -80,8 +70,11 @@ export class Initialize {
             ]);
 
             await tasks.run();
-        } finally {
+        }
+        catch (error: unknown) {
+            printError(error);
             logger.restorePrintAndClear();
+            throw error;
         }
 
         const getTokenCallback = async () => {
@@ -90,7 +83,7 @@ export class Initialize {
             };
 
         const iModelsClientOptions: IModelsClientOptions = {
-            cloudStorage: Initialize.createDefaultClientStorage()
+            cloudStorage: Initialize.createDefaultClientStorage(),
         }
 
         /*if(environment === Environment.DEV) {
@@ -100,12 +93,41 @@ export class Initialize {
         }*/
         const iModelsCLient = new IModelsClient(iModelsClientOptions);
 
-        const iModelIterator = iModelsCLient.iModels.getMinimalList({
-                authorization: getTokenCallback,
-                urlParams: {
-                    iTwinId: "8a1fcd73-8c23-460d-a392-8b4afc00affc",
-                },
+        const method: "iTwin" | "iModel" = await select({
+            message: 'Choose the method to connect',
+            choices: [ { value: "iTwin", name: "Load available iModel IDs for a provided iTwin ID" },
+                { value: "iModel", name: "Load a single iModel by ID" }],
+        });
+
+        let iModelId: string | undefined = undefined;
+
+        const id = await input({message: `Please provide the ${method} ID`});
+        if (method === "iTwin") {
+            const iModelIterator = iModelsCLient.iModels.getMinimalList({
+                    authorization: getTokenCallback,
+                    urlParams: {
+                        iTwinId: id,
+                    },
+                });
+
+            const iModelChoices = [];
+            for await (const iModel of iModelIterator) {
+                iModelChoices.push({
+                    name: `${iModel.displayName} (ID: ${iModel.id})`,
+                    value: iModel.id,
+                });
+            }
+
+            iModelId = await select({
+                message: 'Select an iModel',
+                choices: iModelChoices,
             });
+        } else {
+            iModelId = id;
+        }
+
+        // get the imodel
+
     }
 
     public static createDefaultClientStorage(): ClientStorage {
