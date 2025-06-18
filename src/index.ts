@@ -24,6 +24,11 @@ runner.run()
     process.exit(0);
   })
   .catch((error: unknown) => {
+    if (error instanceof Error) {
+      if (error.name === "ExitPromptError") { // When pressing ctrl+c during an inquirer prompt
+        process.exit(0);
+      }
+    }
     printError(error);
     process.exit(1);
   });
