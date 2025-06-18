@@ -1,17 +1,13 @@
 
-import { select, confirm } from '@inquirer/prompts';
-import Listr from 'listr';
-import { Environment } from "./Interfaces";
-import { detectWorkspace, WorkspaceProps } from "./Workspace";
+import { confirm } from '@inquirer/prompts';
+import { loadWorkspace, Workspace } from "./Workspace";
 import { applicationVersion } from "./Diagnostics";
 import { Initialize } from "./Logic/Initialize";
-import { LogBuffer } from "./LogBuffer";
 import { formatPath, formatWarning } from "./ConsoleFormatter";
-
 
 export class Runner {
     public async run(): Promise<void> {
-        const workspace: WorkspaceProps = await detectWorkspace();
+        const workspace: Workspace = await loadWorkspace();
         const activeMelodiVersion = applicationVersion;
 
         console.log(`User settings directory: ${formatPath(workspace.userConfigDirPath)}`);

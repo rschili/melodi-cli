@@ -16,7 +16,7 @@
             "outFiles": [
                 "${workspaceFolder}/**/*.js"
             ],
-            "cwd": "${workspaceFolder}/test/workspace/"
+            "cwd": "${workspaceFolder}/workspace/"
         }
     ]
 }

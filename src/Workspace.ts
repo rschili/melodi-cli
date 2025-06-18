@@ -2,71 +2,52 @@ import * as fs from 'fs';
 import path from "path";
 import os from "os";
 import { z } from "zod/v4";
-import { Environment, WorkspaceType } from "./Interfaces";
+import { globby } from 'globby';
 
-export interface WorkspaceConfigProps {
-    type: WorkspaceType;
-    melodiVersion: string;
-}
+const WorkspaceConfigSchema = z.object({
+    melodiVersion: z.string(),
+});
 
-const BriefcaseConfigSchema = z.object({
+export type WorkspaceConfig = z.infer<typeof WorkspaceConfigSchema>;
+
+
+/*const BriefcaseConfigSchema = z.object({
     type: z.enum([WorkspaceType.BRIEFCASE]),
     melodiVersion: z.string(),
     environment: z.enum([Environment.PROD, Environment.QA, Environment.DEV]),
 });
 
-export type BriefcaseConfigProps = z.infer<typeof BriefcaseConfigSchema>;
+export type BriefcaseConfigProps = z.infer<typeof BriefcaseConfigSchema>;*/
 
-export function isBriefcaseConfig(config: WorkspaceConfigProps): config is BriefcaseConfigProps {
-    return config.type === WorkspaceType.BRIEFCASE;
-}
+export const MelodiConfigFolderName = '.melodi';
+export const ConfigFileName = 'config.json';
 
-const ECDbConfigSchema = z.object({
-    type: z.enum([WorkspaceType.ECDB]),
-    melodiVersion: z.string(),
-    fileName: z.string()
-});
-
-export type ECDbConfigProps = z.infer<typeof ECDbConfigSchema>;
-
-export function isECDbConfig(config: WorkspaceConfigProps): config is ECDbConfigProps {
-    return config.type === WorkspaceType.ECDB;
-}
-
-
-const StandaloneConfigSchema = z.object({
-    type: z.enum([WorkspaceType.STANDALONE]),
-    melodiVersion: z.string(),
-});
-export type StandaloneConfigProps = z.infer<typeof StandaloneConfigSchema>;
-
-export function isStandaloneConfig(config: WorkspaceConfigProps): config is StandaloneConfigProps {
-    return config.type === WorkspaceType.STANDALONE;
-}
-
-export interface WorkspaceProps {
+export interface Workspace {
     workspaceRootPath: string;
     workspaceConfigDirPath: string;
     userConfigDirPath: string;
-    config?: WorkspaceConfigProps;
+    config?: WorkspaceConfig;
+    files?: WorkspaceFile[];
 }
 
-export async function detectWorkspace(): Promise<WorkspaceProps> {
+export async function loadWorkspace(root: string = process.cwd()): Promise<Workspace> {
     // check if there is a ".melodi" subdirectory in the current working directory
-    const melodiConfigFolder = '.melodi';
-    const workspaceRootPath = process.cwd();
-    const userConfigDirPath = path.join(os.homedir(), melodiConfigFolder)
-    const melodiConfigPath = path.join(workspaceRootPath, melodiConfigFolder);
+    
+    const workspaceRootPath = root;
+    const userConfigDirPath = path.join(os.homedir(), MelodiConfigFolderName)
+    const melodiConfigPath = path.join(workspaceRootPath, MelodiConfigFolderName);
     if (!fs.existsSync(workspaceRootPath) || !fs.lstatSync(workspaceRootPath).isDirectory()) {
-        return {
-            userConfigDirPath,
-            workspaceRootPath,
-            workspaceConfigDirPath: melodiConfigPath,
-        };
+        throw new Error(`The current working directory is not a valid directory: ${workspaceRootPath}`);
     }
 
-    const configFileName = 'config.json';
-    const configPath = path.join(melodiConfigPath, configFileName);
+    try {
+        fs.accessSync(workspaceRootPath, fs.constants.R_OK | fs.constants.W_OK)
+    }
+    catch (err) {
+        throw new Error(`The current working directory is not accessible: ${workspaceRootPath}. Please check permissions.`);
+    }
+
+    const configPath = path.join(melodiConfigPath, ConfigFileName);
     if (!fs.existsSync(configPath)) {
         return {
             userConfigDirPath,
@@ -90,23 +71,101 @@ export async function detectWorkspace(): Promise<WorkspaceProps> {
 }
 
 // Read and validate config
-export async function readWorkspaceConfig(configPath: string): Promise<WorkspaceConfigProps> {
+export async function readWorkspaceConfig(configPath: string): Promise<WorkspaceConfig> {
     const data = await fs.promises.readFile(configPath, 'utf-8');
     const json = JSON.parse(data);
-    const type = json.type;
-    if (type === WorkspaceType.BRIEFCASE) {
-        return await BriefcaseConfigSchema.parseAsync(json);
-    } else if (type === WorkspaceType.ECDB) {
-        return await ECDbConfigSchema.parseAsync(json);
-    } else if (type === WorkspaceType.STANDALONE) {
-        return await StandaloneConfigSchema.parseAsync(json);
-    } else {
-        throw new Error(`Unknown workspace type: ${type}`);
-    }
+    return await WorkspaceConfigSchema.parseAsync(json);
 }
 
 // Save config (overwrite)
-export async function saveWorkspaceConfig(configPath: string, config: WorkspaceConfigProps): Promise<void> {
-    const data = JSON.stringify(config, undefined, 2);
+export async function saveWorkspaceConfig(ws: Workspace): Promise<void> {
+    if(ws.config === undefined) {
+        throw new Error("Workspace config is undefined. Please provide a valid config.");
+    }
+
+    // Validate the config before saving
+    if (!fs.existsSync(ws.workspaceConfigDirPath)) {
+        await fs.promises.mkdir(ws.workspaceConfigDirPath, { recursive: true });
+    }
+
+    if (!fs.lstatSync(ws.workspaceConfigDirPath).isDirectory()) {
+        throw new Error(`The workspace config directory is not a valid directory: ${ws.workspaceConfigDirPath}`);
+    }
+
+    try {
+        fs.accessSync(ws.workspaceConfigDirPath, fs.constants.R_OK | fs.constants.W_OK);
+    } catch (err) {
+        throw new Error(`The workspace config directory is not accessible: ${ws.workspaceConfigDirPath}. Please check permissions.`);
+    }
+
+    const configPath = path.join(ws.workspaceConfigDirPath, ConfigFileName);
+    const data = JSON.stringify(ws.config, undefined, 2);
     await fs.promises.writeFile(configPath, data, 'utf-8');
+}
+
+
+export enum Environment {
+    PROD = 'PROD',
+    QA = 'QA',
+    DEV = 'DEV',
+}
+
+export enum FileType {
+    BRIEFCASE = 'Briefcase',
+    ECDB = 'ECDb',
+    STANDALONE = 'Standalone',
+}
+
+interface WorkspaceFile {
+    relativePath: string;
+    fileType: FileType;
+}
+
+export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
+    const patterns = [
+        '**/*.bim',
+        '**/*.ecdb',
+    ];
+
+    const ignore = [
+        '**/.*',       // Ignore dotfiles and dotfolders
+        '**/.*/**',    // Also ignore anything inside dotfolders
+    ];
+
+    const files = await globby(patterns, {
+        cwd: ws.workspaceRootPath,
+        absolute: false,
+        deep: 2,          // Limit to 2 levels deep
+        dot: false,       // Don't match dotfiles/folders
+        ignore,
+        caseSensitiveMatch: false,
+    });
+
+    const workspaceFiles: WorkspaceFile[] = files.map(file => {
+        const ext = path.extname(file).toLowerCase();
+        const baseName = path.basename(file);
+        const dirName = path.join(ws.workspaceRootPath, path.dirname(file));
+
+        let fileType: FileType;
+        if (ext === '.ecdb') {
+            fileType = FileType.ECDB;
+        } else if (ext === '.bim') {
+            const dotFolderPath = path.join(dirName, `.${baseName}`);
+            if (fs.existsSync(dotFolderPath) && fs.lstatSync(dotFolderPath).isDirectory()) {
+            fileType = FileType.BRIEFCASE;
+            } else {
+            fileType = FileType.STANDALONE;
+            }
+        } else {
+            throw new Error(`Unsupported file type: ${file}`);
+        }
+
+        return {
+            relativePath: file,
+            fileType,
+        };
+    });
+
+    ws.files = workspaceFiles;
+
 }
