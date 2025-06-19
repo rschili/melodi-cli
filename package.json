@@ -36,22 +36,21 @@
   "homepage": "https://github.com/rschili/melodi-cli#readme",
   "devDependencies": {
     "@types/listr": "^0.14.9",
-    "@types/node": "^24.0.1",
+    "@types/node": "^24.0.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@inquirer/prompts": "^7.5.3",
     "@itwin/core-backend": "^5.0.1",
     "@itwin/imodels-client-authoring": "^6.0.0",
     "@itwin/node-cli-authorization": "^3.0.1",
     "@itwin/object-storage-azure": "^3.0.0-dev.0",
     "@itwin/object-storage-google": "^3.0.0-dev.0",
     "chalk": "^5.4.1",
-    "console-table-printer": "^2.14.3",
     "globby": "^14.1.0",
     "gradient-string": "^3.0.0",
-    "listr": "^0.14.3",
-    "zod": "^3.25.64"
+    "prompts": "^2.4.2",
+    "yocto-spinner": "^1.0.0",
+    "zod": "^3.25.67"
   }
 }
