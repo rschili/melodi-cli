@@ -4,6 +4,8 @@ import { loadWorkspace, Workspace } from "./Workspace";
 import { applicationVersion } from "./Diagnostics";
 import { Initialize } from "./Logic/Initialize";
 import { formatPath, formatWarning } from "./ConsoleFormatter";
+import { WorkspaceManager } from "./Logic/WorkspaceManager";
+import * as fs from 'fs';
 
 export class Runner {
     public async run(): Promise<void> {
@@ -24,5 +26,11 @@ export class Runner {
 
         await Initialize.run(workspace);
         }
+
+        if (!fs.existsSync(workspace.cacheDirPath)) {
+            await fs.promises.mkdir(workspace.cacheDirPath, { recursive: true });
+        }
+
+        await WorkspaceManager.run(workspace);
     }
 }

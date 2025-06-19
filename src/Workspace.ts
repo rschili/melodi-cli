@@ -20,12 +20,14 @@ export type WorkspaceConfig = z.infer<typeof WorkspaceConfigSchema>;
 export type BriefcaseConfigProps = z.infer<typeof BriefcaseConfigSchema>;*/
 
 export const MelodiConfigFolderName = '.melodi';
+export const CacheFolderName = '.cache';
 export const ConfigFileName = 'config.json';
 
 export interface Workspace {
     workspaceRootPath: string;
     workspaceConfigDirPath: string;
     userConfigDirPath: string;
+    cacheDirPath: string;
     config?: WorkspaceConfig;
     files?: WorkspaceFile[];
 }
@@ -36,6 +38,7 @@ export async function loadWorkspace(root: string = process.cwd()): Promise<Works
     const workspaceRootPath = root;
     const userConfigDirPath = path.join(os.homedir(), MelodiConfigFolderName)
     const melodiConfigPath = path.join(workspaceRootPath, MelodiConfigFolderName);
+    const cacheDirPath = path.join(workspaceRootPath, CacheFolderName);
     if (!fs.existsSync(workspaceRootPath) || !fs.lstatSync(workspaceRootPath).isDirectory()) {
         throw new Error(`The current working directory is not a valid directory: ${workspaceRootPath}`);
     }
@@ -53,6 +56,7 @@ export async function loadWorkspace(root: string = process.cwd()): Promise<Works
             userConfigDirPath,
             workspaceRootPath,
             workspaceConfigDirPath: melodiConfigPath,
+            cacheDirPath,
         };
     }
 
@@ -67,6 +71,7 @@ export async function loadWorkspace(root: string = process.cwd()): Promise<Works
         workspaceRootPath,
         workspaceConfigDirPath: melodiConfigPath,
         config,
+        cacheDirPath,
     };
 }
 
@@ -101,6 +106,10 @@ export async function saveWorkspaceConfig(ws: Workspace): Promise<void> {
     const configPath = path.join(ws.workspaceConfigDirPath, ConfigFileName);
     const data = JSON.stringify(ws.config, undefined, 2);
     await fs.promises.writeFile(configPath, data, 'utf-8');
+
+    if (!fs.existsSync(ws.cacheDirPath)) {
+        await fs.promises.mkdir(ws.cacheDirPath, { recursive: true });
+    }
 }
 
 
@@ -116,7 +125,7 @@ export enum FileType {
     STANDALONE = 'Standalone',
 }
 
-interface WorkspaceFile {
+export interface WorkspaceFile {
     relativePath: string;
     fileType: FileType;
 }

@@ -10,10 +10,10 @@ import { LogBuffer } from "../LogBuffer";
 import Listr from "listr";
 import { withTimeout } from "../PromiseHelper";
 import { printError } from "../ConsoleFormatter";
-import { Environment, FileType } from "../Workspace";
+import { Environment, FileType, Workspace } from "../Workspace";
 
-export class NewDb {
-    public static async run(): Promise<void> {
+export class NewFile {
+    public static async run(ws: Workspace): Promise<void> {
         const workspaceType: FileType = await select({
             message: 'What type of file do you want to create?',
             choices: [
@@ -79,7 +79,7 @@ export class NewDb {
             };
 
         const iModelsClientOptions: IModelsClientOptions = {
-            cloudStorage: NewDb.createDefaultClientStorage(),
+            cloudStorage: NewFile.createDefaultClientStorage(),
         }
 
         /*if(environment === Environment.DEV) {
