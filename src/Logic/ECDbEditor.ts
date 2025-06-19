@@ -1,7 +1,8 @@
 import { ECDb, ECDbOpenMode, IModelHost } from "@itwin/core-backend";
 import { Workspace, WorkspaceFile } from "../Workspace";
 import path from "path";
-import { select } from "@inquirer/prompts";
+import { input, select } from "@inquirer/prompts";
+import { Table } from "console-table-printer";
 
 export class ECDbEditor {
     public static async run(ws: Workspace, file: WorkspaceFile, openMode: ECDbOpenMode): Promise<void> {
@@ -27,8 +28,7 @@ export class ECDbEditor {
 
             switch (operation) {
                 case "ECSql":
-                    console.log("ECSql operation selected.");
-                    // Add ECSql operation logic here
+                    await this.runECSql(db);
                     break;
                 case "Sqlite":
                     console.log("Sqlite operation selected.");
@@ -44,5 +44,28 @@ export class ECDbEditor {
                     return;
             }
         }
+    }
+
+    static async runECSql(db: ECDb) {
+        const ecsql = await input({
+            message: "Enter the ECSql statement to execute. Results will be limited to 100 rows max.",
+        });
+        const reader = db.createQueryReader(ecsql, undefined, { limit: { count: 100 } });
+
+        const table = new Table({
+            //columns: [{ name: "Column", alignment: "left" },],
+            title: `ECSql Results for: ${ecsql}`,
+            defaultColumnOptions: { maxLen: 5 },
+        });
+
+        /*const columns = await reader.getMetaData();
+        for (const col of columns) {
+            table.addColumn(col.name);
+        }*/
+        for await (const row of reader) {
+            table.addRow(row.toRow());
+        }
+        table.printTable();
+        
     }
 }
