@@ -1,7 +1,8 @@
-import { select } from "@inquirer/prompts";
 import { FileType, Workspace, WorkspaceFile } from "../Workspace";
 import { ECDbOpenMode } from "@itwin/core-backend";
 import { ECDbEditor } from "./ECDbEditor";
+import prompts from "prompts";
+import { exitProcessOnAbort } from "../ConsoleHelper";
 
 export class OpenFile {
     public static async run(ws: Workspace, file: WorkspaceFile): Promise<void> {
@@ -15,26 +16,34 @@ export class OpenFile {
         }
 
         let dbApiKind: DbApiKind = DbApiKind.ECDb;
-        if(file.fileType === FileType.BRIEFCASE || file.fileType === FileType.STANDALONE) {
-            dbApiKind = await select<DbApiKind>({
-                message: 'You can open the file as low level ECDb or as iModelDb. Which one do you want to use?',
-                choices: [
-                    { name: "Open as ECDb", value: DbApiKind.ECDb },
-                    { name: "Open as iModelDb", value: DbApiKind.iModelDb },
-                ],
-                default: DbApiKind.iModelDb,
+        if (file.fileType === FileType.BRIEFCASE || file.fileType === FileType.STANDALONE) {
+            const dbApiKindResponse = await prompts({
+            type: 'select',
+            name: 'dbApiKind',
+            message: 'You can open the file as low level ECDb or as iModelDb. Which one do you want to use?',
+            choices: [
+                { title: "Open as ECDb", value: DbApiKind.ECDb },
+                { title: "Open as iModelDb", value: DbApiKind.iModelDb },
+            ],
+            initial: 1, // Default to iModelDb
+            onState: exitProcessOnAbort,
             });
+            dbApiKind = dbApiKindResponse.dbApiKind;
         }
 
-        const openMode = await select<ECDbOpenMode>({
+        const openModeResponse = await prompts({
+            type: 'select',
+            name: 'openMode',
             message: 'Select the open mode for the file',
             choices: [
-                { name: "Open in read-only mode", value: ECDbOpenMode.Readonly },
-                { name: "Open in read-write mode", value: ECDbOpenMode.ReadWrite },
-                { name: "Open the file in read-write mode and upgrade it to the latest file format version if necessary.", value: ECDbOpenMode.FileUpgrade },
+            { title: "Open in read-only mode", value: ECDbOpenMode.Readonly },
+            { title: "Open in read-write mode", value: ECDbOpenMode.ReadWrite },
+            { title: "Open the file in read-write mode and upgrade it to the latest file format version if necessary.", value: ECDbOpenMode.FileUpgrade },
             ],
-            default: ECDbOpenMode.Readonly,
+            initial: 0, // Default to Readonly
+            onState: exitProcessOnAbort,
         });
+        const openMode = openModeResponse.openMode;
 
         if(dbApiKind === DbApiKind.ECDb) {
             await ECDbEditor.run(ws, file, openMode);

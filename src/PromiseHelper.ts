@@ -1,17 +1,13 @@
 
-export async function withTimeout<T>(task: () => Promise<T>, seconds: number): Promise<T> {
-    return new Promise(async (resolve, reject) => {
-        const timeout = setTimeout(() => {
-            reject(new Error(`Task timed out after ${seconds} seconds`));
-        }, seconds * 1000);
-
-        try {
-            const result = await task();
-            clearTimeout(timeout);
-            resolve(result);
-        } catch (err) {
-            clearTimeout(timeout);
-            reject(err);
-        }
+export async function withTimeout<T>(task: Promise<T>, seconds: number): Promise<T> {
+    let id: NodeJS.Timeout;
+    const timer = new Promise<never>((_, reject) => {
+        id = setTimeout(() => reject(new Error(`Timeout of ${seconds} seconds exceeded.`)), seconds * 1000);
     });
+
+    try {
+        return await Promise.race([task, timer]) as T;
+    } finally {
+        clearTimeout(id!);
+    }
 }

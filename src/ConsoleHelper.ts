@@ -15,3 +15,16 @@ export function printError(error: unknown): void {
         console.error(formatError(`Error: ${String(error)}`));
     }
 }
+
+interface PromptState {
+  aborted: boolean
+}
+
+export function exitProcessOnAbort (state: PromptState) : void {
+    if (state.aborted) {
+        // re-enable the cursor or it may remain hidden
+        process.stdout.write('\x1B[?25h')
+        process.stdout.write('\n')
+        process.exit(1)
+    }
+}

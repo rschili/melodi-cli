@@ -1,9 +1,10 @@
-import Listr from "listr";
 import { detectWorkspaceFiles, Workspace, WorkspaceFile } from "../Workspace";
 import { withTimeout } from "../PromiseHelper";
-import { select, Separator } from "@inquirer/prompts";
 import { NewFile } from "./NewFile";
 import { OpenFile } from "./OpenFile";
+import prompts from "prompts";
+import yoctoSpinner from "yocto-spinner";
+import { exitProcessOnAbort, printError } from "../ConsoleHelper";
 
 export class WorkspaceManager {
     public static async run(ws: Workspace): Promise<void> {
@@ -13,14 +14,16 @@ export class WorkspaceManager {
 
         while(true) { // loop so we can return to the menu after each action
             // identify all existing files in the workspace
-            const tasks = new Listr([
-                {
-                    title: 'Loading workspace contents',
-                    task: () => withTimeout(() => detectWorkspaceFiles(ws), 15),
-                },
-            ]);
-
-            await tasks.run();
+            const spinner = yoctoSpinner({text: "Loading workspace contents..." });
+            try {
+                spinner.start();
+                await withTimeout(detectWorkspaceFiles(ws), 15);
+                spinner.success();
+            }
+            catch (error: unknown) {
+                spinner.error("Loading workspace contents failed.");
+                throw error;
+            }
 
             if(ws.files === undefined || ws.files.length === 0) {
                 console.log("Workspace is curently empty");
@@ -32,21 +35,24 @@ export class WorkspaceManager {
                     name: `${file.relativePath} (${file.fileType})`, 
                     value: file,})));
             }
-
             const createNewValue = "__createNew__";
             const refreshValue = "__refresh__";
             const exitValue = "__exit__";
-            const choice = await select<WorkspaceFile | string>({
+            const response = await prompts({
+                type: 'select',
+                name: 'choice',
                 message: 'Select an option',
                 choices: [
-                    { name: "Create a new Db...", value: createNewValue},
-                    { name: "Refresh list of files", value: refreshValue},
-                    ... fileChoices,
-                    { name: "Exit", value: exitValue },
+                    { title: "Create a new Db...", value: createNewValue },
+                    { title: "Refresh list of files", value: refreshValue },
+                    ...fileChoices.map(file => ({ title: file.name, value: file.value })),
+                    { title: "Exit", value: exitValue },
                 ],
-                pageSize: 10,
-                default: fileChoices.length !== 0 ? fileChoices[0].value : undefined,
+                initial: fileChoices.length >= 0 ? 2 : undefined,
+                onState: exitProcessOnAbort,
             });
+
+            const choice = response.choice;
 
             if (choice === exitValue) {
                 return;

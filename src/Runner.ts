@@ -1,11 +1,11 @@
 
-import { confirm } from '@inquirer/prompts';
 import { loadWorkspace, Workspace } from "./Workspace";
 import { applicationVersion } from "./Diagnostics";
 import { Initialize } from "./Logic/Initialize";
-import { formatPath, formatWarning } from "./ConsoleFormatter";
+import { exitProcessOnAbort, formatPath, formatWarning } from "./ConsoleHelper";
 import { WorkspaceManager } from "./Logic/WorkspaceManager";
 import * as fs from 'fs';
+import prompts from 'prompts';
 
 export class Runner {
     public async run(): Promise<void> {
@@ -20,7 +20,14 @@ export class Runner {
             }
         } else {
             console.log(`No workspace configuration found.`);
-            const init = await confirm({ message: `Do you want to initialize a new workspace at ${formatPath(workspace.workspaceRootPath)}?` });
+            const response = await prompts({
+                type: 'confirm',
+                name: 'init',
+                message: `Do you want to initialize a new workspace at ${formatPath(workspace.workspaceRootPath)}?`,
+                onState: exitProcessOnAbort,
+            });
+
+            const init = response.init;
             if(!init)
                 return;
 

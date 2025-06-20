@@ -1,5 +1,5 @@
 
-import { select, input } from "@inquirer/prompts";
+import prompts from "prompts";
 import { NodeCliAuthorizationClient } from "@itwin/node-cli-authorization";
 import { GoogleClientStorage } from "@itwin/object-storage-google/lib/client";
 import { ClientStorageWrapperFactory } from "@itwin/object-storage-google/lib/client/wrappers";
@@ -7,21 +7,26 @@ import { AzureClientStorage, BlockBlobClientWrapperFactory } from "@itwin/object
 import { ClientStorage, StrategyClientStorage} from "@itwin/object-storage-core";
 import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-authoring";
 import { LogBuffer } from "../LogBuffer";
-import Listr from "listr";
 import { withTimeout } from "../PromiseHelper";
-import { printError } from "../ConsoleFormatter";
+import yoctoSpinner from "yocto-spinner";
+import { printError, formatError, exitProcessOnAbort } from "../ConsoleHelper";
 import { Environment, FileType, Workspace } from "../Workspace";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
-        const workspaceType: FileType = await select({
+        const workspaceTypeAnswer = await prompts({
+            name: "value",
+            type: "select",
             message: 'What type of file do you want to create?',
             choices: [
-                { name: 'Briefcase', value: FileType.BRIEFCASE, description: 'Connects to iModelHub and pulls a briefcase of an existing iModel you have access to.' },
-                { name: 'ECDb', value: FileType.ECDB, description: 'Initialize with a blank ECDb (SQLite) database.' },
-                { name: 'Standalone', value: FileType.STANDALONE, description: 'Creates an empty standalone iModel.' },
+                { title: 'Briefcase', value: FileType.BRIEFCASE, description: 'Connects to iModelHub and pulls a briefcase of an existing iModel you have access to.' },
+                { title: 'ECDb', value: FileType.ECDB, description: 'Initialize with a blank ECDb (SQLite) database.' },
+                { title: 'Standalone', value: FileType.STANDALONE, description: 'Creates an empty standalone iModel.' },
             ],
+            initial: 0,
+            onState: exitProcessOnAbort,
         });
+        const workspaceType: FileType = workspaceTypeAnswer.value;
 
         switch (workspaceType) {
             case FileType.BRIEFCASE:
@@ -34,10 +39,19 @@ export class NewFile {
     }
 
     public static async initBriefcase(): Promise<void> {
-        const environment: Environment = await select({
-            message: 'Select an environment',
-            choices: [Environment.PROD, Environment.QA, Environment.DEV],
+        const envAnswer = await prompts({
+            name: "value",
+            type: "select",
+            message: "Select an environment",
+            choices: [
+                {title: "PROD", value: Environment.PROD },
+                {title: "QA", value: Environment.QA },
+                {title: "DEV", value: Environment.DEV },
+            ],
+            initial: 0,
+            onState: exitProcessOnAbort,
         });
+        const environment = envAnswer.value as Environment;
 
         const authority = environment === Environment.PROD ? "https://ims.bentley.com/" : environment === Environment.QA ? "https://qa-ims.bentley.com/" : "https://dev-ims.bentley.com/";
         if(environment !== Environment.PROD) {
@@ -55,19 +69,15 @@ export class NewFile {
         // collect nested logs
         var logger = new LogBuffer();
 
+        const spinner = yoctoSpinner({text: "Signing in (please check for a browser window)..." });
         try {
             logger.start();
-
-            const tasks = new Listr([
-                {
-                    title: 'Signing in (please check for a browser window)',
-                    task: () => withTimeout(() => authClient.signIn(), 30),
-                },
-            ]);
-
-            await tasks.run();
+            spinner.start();
+            await withTimeout(authClient.signIn(), 30);
+            spinner.success("Sign in successful.");
         }
         catch (error: unknown) {
+            spinner.error("Sign in failed.");
             printError(error);
             logger.restorePrintAndClear();
             throw error;
@@ -89,15 +99,29 @@ export class NewFile {
         }*/
         const iModelsCLient = new IModelsClient(iModelsClientOptions);
 
-        const method: "iTwin" | "iModel" = await select({
+        const methodAnswer = await prompts({
+            name: "value",
+            type: "select",
             message: 'Choose the method to connect',
-            choices: [ { value: "iTwin", name: "Load available iModel IDs for a provided iTwin ID" },
-                { value: "iModel", name: "Load a single iModel by ID" }],
+            choices: [
+                { title: "Load available iModel IDs for a provided iTwin ID", value: "iTwin" },
+                { title: "Load a single iModel by ID", value: "iModel" }
+            ],
+            initial: 0,
+            onState: exitProcessOnAbort,
         });
+        const method: "iTwin" | "iModel" = methodAnswer.value;
 
         let iModelId: string | undefined = undefined;
 
-        const id = await input({message: `Please provide the ${method} ID`});
+        const idAnswer = await prompts({
+            name: "value",
+            type: "text",
+            message: `Please provide the ${method} ID`,
+            onState: exitProcessOnAbort,
+        });
+        const id = idAnswer.value;
+
         if (method === "iTwin") {
             const iModelIterator = iModelsCLient.iModels.getMinimalList({
                     authorization: getTokenCallback,
@@ -109,15 +133,25 @@ export class NewFile {
             const iModelChoices = [];
             for await (const iModel of iModelIterator) {
                 iModelChoices.push({
-                    name: `${iModel.displayName} (ID: ${iModel.id})`,
+                    title: `${iModel.displayName} (ID: ${iModel.id})`,
                     value: iModel.id,
                 });
             }
 
-            iModelId = await select({
+            if (iModelChoices.length === 0) {
+                console.error(formatError("No iModels found for the provided iTwin ID."));
+                return;
+            }
+
+            const iModelAnswer = await prompts({
+                name: "value",
+                type: "select",
                 message: 'Select an iModel',
                 choices: iModelChoices,
+                initial: 0,
+                onState: exitProcessOnAbort,
             });
+            iModelId = iModelAnswer.value;
         } else {
             iModelId = id;
         }
