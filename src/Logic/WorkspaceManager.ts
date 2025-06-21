@@ -1,10 +1,9 @@
 import { detectWorkspaceFiles, Workspace, WorkspaceFile } from "../Workspace";
 import { withTimeout } from "../PromiseHelper";
 import { NewFile } from "./NewFile";
-import { OpenFile } from "./OpenFile";
-import prompts from "prompts";
+import { FileOperations } from "./FileOperations";
+import { select } from "@inquirer/prompts";
 import yoctoSpinner from "yocto-spinner";
-import { exitProcessOnAbort, printError } from "../ConsoleHelper";
 
 export class WorkspaceManager {
     public static async run(ws: Workspace): Promise<void> {
@@ -38,21 +37,16 @@ export class WorkspaceManager {
             const createNewValue = "__createNew__";
             const refreshValue = "__refresh__";
             const exitValue = "__exit__";
-            const response = await prompts({
-                type: 'select',
-                name: 'choice',
+            const choice = await select<string | WorkspaceFile>({
                 message: 'Select an option',
                 choices: [
-                    { title: "Create a new Db...", value: createNewValue },
-                    { title: "Refresh list of files", value: refreshValue },
-                    ...fileChoices.map(file => ({ title: file.name, value: file.value })),
-                    { title: "Exit", value: exitValue },
+                    { name: "Create a new Db...", value: createNewValue },
+                    { name: "Refresh list of files", value: refreshValue },
+                    ...fileChoices.map(file => ({ name: file.name, value: file.value })),
+                    { name: "Exit", value: exitValue },
                 ],
-                initial: fileChoices.length >= 0 ? 2 : undefined,
-                onState: exitProcessOnAbort,
+                default: (fileChoices.length > 0 ? fileChoices[0].value : createNewValue),
             });
-
-            const choice = response.choice;
 
             if (choice === exitValue) {
                 return;
@@ -67,7 +61,7 @@ export class WorkspaceManager {
                 continue; // re-run the loop after creating a new Db
             }
 
-            await OpenFile.run(ws, choice as WorkspaceFile)
+            await FileOperations.run(ws, choice as WorkspaceFile)
         }
     }
 
