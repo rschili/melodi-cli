@@ -2,11 +2,19 @@ import { ECDb, ECDbOpenMode, IModelHost } from "@itwin/core-backend";
 import { Workspace, WorkspaceFile } from "../Workspace";
 import path from "path";
 import prompts from "prompts";
+import { select, Separator } from "@inquirer/prompts";
 import { ECSqlReader, QueryOptionsBuilder, QueryPropertyMetaData, QueryRowFormat } from "@itwin/core-common";
 import { exitProcessOnAbort, formatSuccess, formatWarning, printError } from "../ConsoleHelper";
 import { stdin, stdout } from 'node:process';
 import { createInterface } from "node:readline/promises";
 import chalk from "chalk";
+import { loadSchemaInventory } from "../GithubBisSchemasHelper";
+import semver from "semver";
+
+type Choice<T> = Exclude<
+  Parameters<typeof select<T>>[0]["choices"][number],
+  string | Separator
+>;
 
 export class ECDbEditor {
     private static ecsqlHistory: string[] = [];
@@ -20,8 +28,6 @@ export class ECDbEditor {
         if(!db.isOpen) {
             throw new Error(`Failed to open ECDb file: ${file.relativePath}`);
         }
-
-        console.log(formatSuccess(`Opened ECDb file: ${file.relativePath} in mode: ${ECDbOpenMode[openMode]}`));
 
         while(true) {
             const operationAnswer = await prompts({
@@ -53,6 +59,9 @@ export class ECDbEditor {
                     case "Stats":
                         console.log("Stats operation selected.");
                         // Add Stats operation logic here
+                        break;
+                    case "Schemas":
+                        await this.runSchemas(ws, db);
                         break;
                     case "Close":
                         db.closeDb();
@@ -156,7 +165,7 @@ export class ECDbEditor {
         return true;
     }
 
-    static arrayToTable(metadata: QueryPropertyMetaData[], data: any[]): string {
+    static arrayToTable(metadata: QueryPropertyMetaData[], data: any[], headerCount: number = 0): string {
         if (data.length === 0) {
             return "";
         }
@@ -179,4 +188,154 @@ export class ECDbEditor {
 
         return [headerRow, separatorRow, ...dataRows].join("\n");
     }
+
+    static normalizeCellWidths(data: string[][]): void {
+        if (data.length === 0) {
+            return;
+        }
+
+        const columnWidths: number[] = [];
+        for (const row of data) {
+            for (let i = 0; i < row.length; i++) {
+                const cell = row[i];
+                if (!columnWidths[i] || cell.length > columnWidths[i]) {
+                    columnWidths[i] = cell.length;
+                }
+            }
+        }
+
+        for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
+            for (let colIndex = 0; colIndex < data[rowIndex].length; colIndex++) {
+                data[rowIndex][colIndex] = data[rowIndex][colIndex].padEnd(columnWidths[colIndex]);
+            }
+        }
+    }
+
+    static printTable(data: string[][], headerCount: number = 1) {
+        if (data.length === 0) {
+            console.log("(no data)");
+            return;
+        }
+
+        const horizontalLine = "+-" + data[0].map((headerValue) => "-".repeat(headerValue.length)).join("-+-") + "-+";
+
+        console.log();
+        console.log(horizontalLine);
+        for (let i = 0; i < data.length; i++) {
+            if (i === headerCount && headerCount > 0) {
+                console.log(horizontalLine);
+            }
+            console.log("| " + data[i].map(cell => cell ?? "").join(" | ") + " |");
+        }
+        if (data.length > headerCount) {
+            console.log(horizontalLine);
+        }
+    }
+
+    static async runSchemas(ws: Workspace, db: ECDb): Promise<void> {
+        const queryOptions = new QueryOptionsBuilder();
+        queryOptions.setRowFormat(QueryRowFormat.UseECSqlPropertyIndexes);
+        const reader = db.createQueryReader(
+            "SELECT Name, VersionMajor ,VersionWrite, VersionMinor FROM meta.ECSchemaDef",
+            undefined,
+            queryOptions.getOptions()
+        );
+        const schemasInDb = await reader.toArray();
+
+        const availableSchemas = await loadSchemaInventory(ws.userConfigDirPath);
+
+        type SchemaInfo = {
+            name: string;
+            version?: semver.SemVer;
+            latestVersion?: semver.SemVer;
+            path?: string;
+        };
+
+        const schemaInfoMap: Record<string, SchemaInfo> = {};
+        for (const row of schemasInDb) {
+            const name = row[0];
+            const versionString = `${row[1]}.${row[2]}.${row[3]}`;
+            const version = semver.parse(versionString);
+            if (!version) {
+                console.log(formatWarning(`Schema ${row[0]} has an invalid version: ${row[1]}`));
+                continue;
+            }
+
+            schemaInfoMap[name] = {
+                name,
+                version,
+            }
+        }
+
+        for (const [outerName, schemaGroup] of Object.entries(availableSchemas)) {
+            for (const schema of schemaGroup) {
+                if(!schema.released || !schema.path)
+                    continue; // Skip unreleased schemas
+                if (schema.name !== outerName) {
+                    console.log(formatWarning(`Schema name mismatch: expected ${outerName}, got ${schema.name}`));
+                    continue;
+                }
+                const cleanedVersion = stripLeadingZeros(schema.version);
+                const version = semver.parse(cleanedVersion);
+                if (!version) {
+                    console.log(formatWarning(`Schema ${schema.name} has an invalid version: ${schema.version}`));
+                    continue;
+                }
+
+                const existingSchema = schemaInfoMap[schema.name];
+                if (existingSchema) {
+                    if (!existingSchema.latestVersion || semver.lt(existingSchema.latestVersion, version)) {
+                        existingSchema.latestVersion = version;
+                        existingSchema.path = schema.path;
+                    }
+                } else {
+                    schemaInfoMap[schema.name] = {
+                        name: schema.name,
+                        latestVersion: version,
+                        path: schema.path,
+                    };
+                }
+            }
+        }
+
+        const choices: Choice<SchemaInfo>[] = [];
+        for (const schema of Object.values(schemaInfoMap)) {
+            let name = schema.name;
+            const version = schema.version ? schema.version.toString() : "        ";
+            const latestVersion = schema.latestVersion ? schema.latestVersion.toString() : "        ";
+            const path = schema.path ? schema.path : "              ";
+            if(schema.version)
+            {
+                if(schema.latestVersion) {
+                    if (semver.eq(schema.version, schema.latestVersion)) {
+                        choices.push({ name: `${name} (${version} - ${chalk.green('latest')})`, value: schema });
+                    } else if (semver.lt(schema.version, schema.latestVersion)) {
+                        choices.push({ name: `${name} (${version} - ${chalk.yellow(`${schema.latestVersion} available`)})`, value: schema });
+                    } else {
+                        choices.push({ name: `${name} (${version} - ${chalk.magenta('newer than known??')})`, value: schema });
+                    }
+                } else {
+                    choices.push({ name: `${name} (${version})`, value: schema });
+                }
+            } else {
+                choices.push({ name: `${name} (${chalk.gray('available for import')})`, value: schema });
+            }
+        }
+        choices.sort((a, b) => {
+            if (a.value.version && !b.value.version) return -1;
+            if (!a.value.version && b.value.version) return 1;
+            return a.name!.localeCompare(b.name!);
+        });
+
+        const answer = await select({
+            message: "Select schema to view options",
+            choices: choices,
+            pageSize: 25,
+            loop: false,
+        });
+    }
+}
+
+function stripLeadingZeros(str: string): string {
+    return str.replace(/(^|\.)0+(?=\d)/g, '$1');
 }

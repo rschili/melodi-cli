@@ -20,7 +20,7 @@ export type WorkspaceConfig = z.infer<typeof WorkspaceConfigSchema>;
 export type BriefcaseConfigProps = z.infer<typeof BriefcaseConfigSchema>;*/
 
 export const MelodiConfigFolderName = '.melodi';
-export const CacheFolderName = '.cache';
+export const CacheFolderName = '.itwinjs-cache';
 export const ConfigFileName = 'config.json';
 
 export interface Workspace {

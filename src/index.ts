@@ -24,6 +24,9 @@ runner.run()
     process.exit(0);
   })
   .catch((error: unknown) => {
+    if (error instanceof Error && error.name === 'ExitPromptError') { // ctrl+c on inquirer
+      process.exit(0);
+    }
     printError(error);
     process.exit(1);
   });
