@@ -128,6 +128,7 @@ export enum FileType {
 export interface WorkspaceFile {
     relativePath: string;
     fileType: FileType;
+    lastTouched: Date;
 }
 
 export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
@@ -154,6 +155,7 @@ export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
         const ext = path.extname(file).toLowerCase();
         const baseName = path.basename(file);
         const dirName = path.join(ws.workspaceRootPath, path.dirname(file));
+        const absolutePath = path.join(ws.workspaceRootPath, file);
 
         let fileType: FileType;
         if (ext === '.ecdb') {
@@ -169,9 +171,13 @@ export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
             throw new Error(`Unsupported file type: ${file}`);
         }
 
+        const stats = fs.statSync(absolutePath);
+        const lastTouched = new Date(Math.max(stats.mtime.getTime(), stats.birthtime.getTime(), stats.ctime.getTime()));
+
         return {
             relativePath: file,
             fileType,
+            lastTouched,
         };
     });
 

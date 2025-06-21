@@ -33,6 +33,10 @@ export class WorkspaceManager {
                 fileChoices.push(...ws.files!.map(file => ({
                     name: `${file.relativePath} (${file.fileType})`, 
                     value: file,})));
+
+                fileChoices.sort((a, b) => {
+                    return a.value.lastTouched.getTime() - b.value.lastTouched.getTime(); // newest first
+                });
             }
             const createNewValue = "__createNew__";
             const refreshValue = "__refresh__";
@@ -42,7 +46,7 @@ export class WorkspaceManager {
                 choices: [
                     { name: "Create a new Db...", value: createNewValue },
                     { name: "Refresh list of files", value: refreshValue },
-                    ...fileChoices.map(file => ({ name: file.name, value: file.value })),
+                    ...fileChoices,
                     { name: "Exit", value: exitValue },
                 ],
                 default: (fileChoices.length > 0 ? fileChoices[0].value : createNewValue),
