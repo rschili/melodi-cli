@@ -9,7 +9,7 @@ import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-autho
 import { LogBuffer } from "../LogBuffer";
 import { withTimeout } from "../PromiseHelper";
 import yoctoSpinner from "yocto-spinner";
-import { printError, formatError, exitProcessOnAbort } from "../ConsoleHelper";
+import { printError, formatError } from "../ConsoleHelper";
 import { Environment, FileType, Workspace } from "../Workspace";
 
 export class NewFile {

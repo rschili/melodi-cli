@@ -5,6 +5,7 @@ import { FileOperations } from "./FileOperations";
 import { select, Separator } from "@inquirer/prompts";
 import yoctoSpinner from "yocto-spinner";
 import chalk from "chalk";
+import { timeSpanToString } from "../ConsoleHelper";
 
 type Choice<T> = Exclude<
   Parameters<typeof select<T>>[0]["choices"][number],
@@ -42,21 +43,37 @@ export class WorkspaceManager {
                     value: file,})));
 
                 fileChoices.sort((a, b) => {
-                    return a.value.lastTouched.getTime() - b.value.lastTouched.getTime(); // newest first
+                    return b.value.lastTouched.getTime() - a.value.lastTouched.getTime(); // newest first
                 });
             }
+
+            const longestFileChoiceNameLength = fileChoices.reduce((max, choice) => {
+                return Math.max(max, choice.name!.length);
+            }, 0);
+            const lengthBeforeLastMod = longestFileChoiceNameLength + 5;
+            const now = Date.now();
+            for (const choice of fileChoices) {
+                // Pad the name to align descriptions
+                const lastModTimeSpan = now - choice.value.lastTouched.getTime();
+                const timeSpanString = timeSpanToString(lastModTimeSpan);
+                choice.name = choice.name!.padEnd(lengthBeforeLastMod, ' ') + (timeSpanString ? `(${timeSpanString} ago)` : '');
+            }
+
+
             const createNewValue = "__createNew__";
             const refreshValue = "__refresh__";
             const exitValue = "__exit__";
             const choice = await select<string | WorkspaceFile>({
                 message: 'Select an option',
                 choices: [
-                    { name: "Create a new Db...", value: createNewValue },
-                    { name: "Refresh list of files", value: refreshValue },
+                    { name: "New...", value: createNewValue },
+                    { name: "Reload", value: refreshValue },
                     ...fileChoices,
                     { name: "Exit", value: exitValue },
                 ],
                 default: (fileChoices.length > 0 ? fileChoices[0].value : createNewValue),
+                pageSize: 20,
+                loop: false,
             });
 
             if (choice === exitValue) {

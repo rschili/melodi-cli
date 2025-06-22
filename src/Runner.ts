@@ -2,7 +2,7 @@
 import { loadWorkspace, Workspace } from "./Workspace";
 import { applicationVersion } from "./Diagnostics";
 import { Initialize } from "./Logic/Initialize";
-import { exitProcessOnAbort, formatPath, formatWarning } from "./ConsoleHelper";
+import { formatPath, formatWarning } from "./ConsoleHelper";
 import { WorkspaceManager } from "./Logic/WorkspaceManager";
 import * as fs from 'fs';
 import { confirm } from "@inquirer/prompts";

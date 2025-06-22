@@ -15,6 +15,13 @@ type Choice<T> = Exclude<
   string | Separator
 >;
 
+type SchemaInfo = {
+    name: string;
+    version?: semver.SemVer;
+    latestVersion?: semver.SemVer;
+    path?: string;
+};
+
 export class ECDbEditor {
     public static async run(ws: Workspace, file: WorkspaceFile, openMode: ECDbOpenMode): Promise<void> {
         using db: ECDb = new ECDb();
@@ -30,7 +37,7 @@ export class ECDbEditor {
                     { name: "ECSql", value: "ECSql" },
                     { name: "Sqlite", value: "Sqlite" },
                     { name: "Stats", value: "Stats" },
-                    { name: "Schemas", value: "Schemas" },
+                    { name: "Schemas", value: "Schemas", description: chalk.yellowBright("On ECDb level, the support for importing schemas is limited to a single schema at a time. Use iModelDb if you need more options.") },
                     { name: "Close", value: "Close" }
                 ],
             });
@@ -304,6 +311,14 @@ export class ECDbEditor {
     }
 
     static async runSchemas(ws: Workspace, db: ECDb): Promise<void> {
+        //Workflow:
+        // 1. Get schemas in DB, and available schemas
+        // 2. Build a list of choices + info about available updates
+        // 3. Let the user select a schema to update (up-to-date ones are disabled) or import an available schema
+        // 4. before import, ask the user if they want to import the latest version or a specific version
+        // 5. ask if all referenced schemas should be imported as well
+        // 6. import the schema(s) into the DB
+
         const queryOptions = new QueryOptionsBuilder();
         queryOptions.setRowFormat(QueryRowFormat.UseECSqlPropertyIndexes);
         const reader = db.createQueryReader(
@@ -315,12 +330,6 @@ export class ECDbEditor {
 
         const availableSchemas = await loadSchemaInventory(ws.userConfigDirPath);
 
-        type SchemaInfo = {
-            name: string;
-            version?: semver.SemVer;
-            latestVersion?: semver.SemVer;
-            path?: string;
-        };
 
         const schemaInfoMap: Record<string, SchemaInfo> = {};
         for (const row of schemasInDb) {
@@ -369,41 +378,58 @@ export class ECDbEditor {
             }
         }
 
-        const choices: Choice<SchemaInfo>[] = [];
+        const choices: Choice<SchemaInfo | string>[] = [];
         for (const schema of Object.values(schemaInfoMap)) {
             let name = schema.name;
-            const version = schema.version ? schema.version.toString() : "        ";
-            const latestVersion = schema.latestVersion ? schema.latestVersion.toString() : "        ";
-            const path = schema.path ? schema.path : "              ";
-            if(schema.version)
-            {
-                if(schema.latestVersion) {
-                    if (semver.eq(schema.version, schema.latestVersion)) {
-                        choices.push({ name: `${name} (${version} - ${chalk.green('latest')})`, value: schema });
-                    } else if (semver.lt(schema.version, schema.latestVersion)) {
-                        choices.push({ name: `${name} (${version} - ${chalk.yellow(`${schema.latestVersion} available`)})`, value: schema });
-                    } else {
-                        choices.push({ name: `${name} (${version} - ${chalk.magenta('newer than known??')})`, value: schema });
-                    }
+            if(!schema.version)
+                continue; // Skip schemas that are not in the database
+
+            const version = schema.version.toString();
+            if(schema.latestVersion) {
+                if (semver.eq(schema.version, schema.latestVersion)) {
+                    choices.push({ name: `${name} (${version} - ${chalk.green('latest')})`, value: schema, disabled: true });
+                } else if (semver.lt(schema.version, schema.latestVersion)) {
+                    choices.push({ name: `${name} (${version} - ${chalk.yellowBright(`${schema.latestVersion} available`)})`, value: schema });
                 } else {
-                    choices.push({ name: `${name} (${version})`, value: schema });
+                    choices.push({ name: `${name} (${version} - ${chalk.magenta('newer than known??')})`, value: schema });
                 }
             } else {
-                choices.push({ name: `${name} (${chalk.gray('available for import')})`, value: schema });
+                choices.push({ name: `${name} (${version})`, value: schema, disabled: true });
             }
         }
         choices.sort((a, b) => {
-            if (a.value.version && !b.value.version) return -1;
-            if (!a.value.version && b.value.version) return 1;
             return a.name!.localeCompare(b.name!);
         });
+        choices.push({ name: "Import a new schema", value: "__import__" });
 
-        const answer = await select({
-            message: "Select schema to view options",
+        if (choices.length === 0) {
+            console.log("No schemas found in the database (that's odd).");
+            return;
+        }
+        let pageSize = 25;
+        const terminalRows = process.stdout.rows;
+        if( terminalRows > 25) {
+            pageSize = Math.max(25, Math.floor(terminalRows * 0.5));
+        }
+
+        const selectedSchema = await select({
+            message: "Select a schema to update",
             choices: choices,
-            pageSize: 25,
+            pageSize: pageSize,
             loop: false,
         });
+
+        if(typeof selectedSchema === "string") {
+            if(selectedSchema === "__import__") {
+                console.log("Importing a new schema is not yet implemented.");
+            }
+            return;
+        }
+
+        console.log(`Selected schema: ${selectedSchema.name}`);
+        if(selectedSchema.version) {
+            console.log(`Version: ${selectedSchema.version}`);
+        }
     }
 }
 

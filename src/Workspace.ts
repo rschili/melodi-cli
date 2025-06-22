@@ -29,7 +29,7 @@ export const MelodiConfigFolderName = '.melodi';
 export const CacheFolderName = '.itwinjs-cache';
 export const ConfigFileName = 'config.json';
 
-export interface Workspace {
+export type Workspace = {
     workspaceRootPath: string;
     workspaceConfigDirPath: string;
     userConfigDirPath: string;
@@ -40,6 +40,30 @@ export interface Workspace {
     // Optional: if iModelHost::Startup has been called with a specific environment, this will be set
     iModelClientEnvironment?: Environment;
     IModelsClient?: IModelsClient;
+}
+
+export enum Environment {
+    PROD = 'PROD',
+    QA = 'QA',
+    DEV = 'DEV',
+}
+
+export enum FileType {
+    BRIEFCASE = 'Briefcase',
+    ECDB = 'ECDb',
+    STANDALONE = 'Standalone',
+}
+
+export type WorkspaceFile = {
+    relativePath: string;
+    fileType: FileType;
+    lastTouched: Date;
+    parentChangeSetId?: string;
+    beDbVersion?: SchemaVersion;
+    ecDbVersion?: SchemaVersion;
+    dgn_DbVersion?: SchemaVersion;
+    bisCoreVersion?: SemVer;
+    elements?: number; // Optional: number of bis_Element records in the iModel, if applicable
 }
 
 export async function loadWorkspace(root: string = process.cwd()): Promise<Workspace> {
@@ -120,31 +144,6 @@ export async function saveWorkspaceConfig(ws: Workspace): Promise<void> {
     if (!fs.existsSync(ws.cacheDirPath)) {
         await fs.promises.mkdir(ws.cacheDirPath, { recursive: true });
     }
-}
-
-
-export enum Environment {
-    PROD = 'PROD',
-    QA = 'QA',
-    DEV = 'DEV',
-}
-
-export enum FileType {
-    BRIEFCASE = 'Briefcase',
-    ECDB = 'ECDb',
-    STANDALONE = 'Standalone',
-}
-
-export interface WorkspaceFile {
-    relativePath: string;
-    fileType: FileType;
-    lastTouched: Date;
-    parentChangeSetId?: string;
-    beDbVersion?: SchemaVersion;
-    ecDbVersion?: SchemaVersion;
-    dgn_DbVersion?: SchemaVersion;
-    bisCoreVersion?: SemVer;
-    elements?: number; // Optional: number of bis_Element records in the iModel, if applicable
 }
 
 export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {

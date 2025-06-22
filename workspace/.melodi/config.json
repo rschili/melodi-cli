@@ -2,17 +2,6 @@
   "melodiVersion": "1.0.0",
   "ecsqlHistory": [
     "select JsonProperties from bis.Element;",
-    "select * from bis.Element;",
-    "select * from bis.Element;",
-    "select * from bis.Element;",
-    "select * from bis.Element;",
-    "select * from bis.Element;",
-    "select * from bis.Element;",
-    "select * from bis.Element;",
-    "select * from bis.Element;",
-    "select * from bis.Element;",
-    "select * from bis.Element;",
-    "select * from bis.Element;",
-    "select JsonProperties from bis.Element;"
+    "select * from bis.element;"
   ]
 }

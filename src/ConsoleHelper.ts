@@ -16,15 +16,30 @@ export function printError(error: unknown): void {
     }
 }
 
-interface PromptState {
-  aborted: boolean
-}
+const msInSecond = 1000;
+const msInMinute = msInSecond * 60;
+const msInHour = msInMinute * 60;
+const msInDay = msInHour * 24;
+const msInYear = msInDay * 365.25;
+export function timeSpanToString(span: number): string | undefined {
+    if (span > msInYear * 100 || span <= 0) {
+        return undefined;
+    }
 
-export function exitProcessOnAbort (state: PromptState) : void {
-    if (state.aborted) {
-        // re-enable the cursor or it may remain hidden
-        process.stdout.write('\x1B[?25h')
-        process.stdout.write('\n')
-        process.exit(1)
+    if (span < msInMinute) {
+        const seconds = Math.floor(span / msInSecond);
+        return `${seconds} second${seconds !== 1 ? "s" : ""}`;
+    } else if (span < msInHour) {
+        const minutes = Math.floor(span / msInMinute);
+        return `${minutes} minute${minutes !== 1 ? "s" : ""}`;
+    } else if (span < msInDay) {
+        const hours = Math.floor(span / msInHour);
+        return `${hours} hour${hours !== 1 ? "s" : ""}`;
+    } else if (span < msInYear) {
+        const days = Math.floor(span / msInDay);
+        return `${days} day${days !== 1 ? "s" : ""}`;
+    } else {
+        const years = Math.floor(span / msInYear);
+        return `${years} year${years !== 1 ? "s" : ""}`;
     }
 }
