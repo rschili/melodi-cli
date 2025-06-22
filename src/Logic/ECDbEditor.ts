@@ -129,7 +129,12 @@ export class ECDbEditor {
         if(ws.config?.ecsqlHistory === undefined) {
             ws.config!.ecsqlHistory = [];
         }
-        ws.config!.ecsqlHistory.push(ecsql);
+        if (!ws.config!.ecsqlHistory.includes(ecsql)) {
+            ws.config!.ecsqlHistory.push(ecsql);
+            if (ws.config!.ecsqlHistory.length > 10) {
+            ws.config!.ecsqlHistory = ws.config!.ecsqlHistory.slice(-10);
+            }
+        }
         saveWorkspaceConfig(ws);
 
         let rows: any[] = [];
