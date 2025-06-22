@@ -229,7 +229,8 @@ async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<voi
                 }
             });
             
-            ecdb.withPreparedSqliteStatement("SELECT Namespace, StrData FROM be_Prop WHERE Name = 'SchemaVersion'", (stmt: SqliteStatement) => {
+            ecdb.withPreparedSqliteStatement("SELECT Namespace, StrData FROM be_Prop WHERE Name = ?", (stmt: SqliteStatement) => {
+                stmt.bindString(1, "SchemaVersion");
                 while (stmt.step() === DbResult.BE_SQLITE_ROW) {
                     const namespace = stmt.getValueString(0);
                     const schemaVersion = stmt.getValueString(1);
@@ -253,7 +254,8 @@ async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<voi
                 }
             });
 
-            ecdb.withPreparedSqliteStatement("SELECT VersionDigit1, VersionDigit2, VersionDigit3 from ec_Schema WHERE Name = 'BisCore'", (stmt: SqliteStatement) => {
+            ecdb.withPreparedSqliteStatement("SELECT VersionDigit1, VersionDigit2, VersionDigit3 from ec_Schema WHERE Name = ?", (stmt: SqliteStatement) => {
+                stmt.bindString(1, "BisCore");
                 if (stmt.step() === DbResult.BE_SQLITE_ROW) {
                     const major = stmt.getValueInteger(0);
                     const minor = stmt.getValueInteger(1);

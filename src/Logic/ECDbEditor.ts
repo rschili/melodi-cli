@@ -2,7 +2,7 @@ import { ECDb, ECDbOpenMode } from "@itwin/core-backend";
 import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
 import path from "path";
 import { select, Separator } from "@inquirer/prompts";
-import { QueryOptionsBuilder, QueryPropertyMetaData, QueryRowFormat } from "@itwin/core-common";
+import { QueryBinder, QueryOptionsBuilder, QueryPropertyMetaData, QueryRowFormat } from "@itwin/core-common";
 import { formatWarning, printError } from "../ConsoleHelper";
 import { stdin, stdout } from 'node:process';
 import { createInterface } from "node:readline/promises";
@@ -71,9 +71,11 @@ export class ECDbEditor {
     }
 
     public static async getClassName(db: ECDb, classIdHex: string, cache: Record<string, string>): Promise<string> {
+        const params = new QueryBinder();
+        params.bindId(1, classIdHex);
         const reader = db.createQueryReader(
-            `SELECT Name FROM meta.ECClassDef WHERE ECInstanceId = HexToId('${classIdHex}') LIMIT 1`,
-            undefined,
+            `SELECT Name FROM meta.ECClassDef WHERE ECInstanceId = ? LIMIT 1`,
+            params,
             { rowFormat: QueryRowFormat.UseECSqlPropertyIndexes }
         );
         const rows = await reader.toArray();
