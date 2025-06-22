@@ -4,6 +4,7 @@ import { NewFile } from "./NewFile";
 import { FileOperations } from "./FileOperations";
 import { select, Separator } from "@inquirer/prompts";
 import yoctoSpinner from "yocto-spinner";
+import chalk from "chalk";
 
 type Choice<T> = Exclude<
   Parameters<typeof select<T>>[0]["choices"][number],
@@ -78,18 +79,20 @@ export class WorkspaceManager {
     static getFileDescription(file: WorkspaceFile): string {
         const descriptions: string[] = [];
         if(file.ecDbVersion !== undefined) {
-            descriptions.push(`ECDb ${WorkspaceManager.getSchemaVersionString(file.ecDbVersion)}`);
+            descriptions.push(`ECDb ${chalk.white(WorkspaceManager.getSchemaVersionString(file.ecDbVersion))}`);
         }
-        if(file.beDbVersion !== undefined) {
-            descriptions.push(`BeDb ${WorkspaceManager.getSchemaVersionString(file.beDbVersion)}`);
+
+        if(file.bisCoreVersion !== undefined) {
+            descriptions.push(`BisCore ${chalk.white(file.bisCoreVersion.toString())}`);
+            if(file.elements !== undefined) {
+                descriptions.push(`Elements: ${chalk.white(file.elements.toLocaleString())}`);
+            }
         }
-        if(file.dgn_DbVersion !== undefined) {
-            descriptions.push(`DgnDb ${WorkspaceManager.getSchemaVersionString(file.dgn_DbVersion)}`);
-        }
+
         if(file.parentChangeSetId !== undefined) {
-            descriptions.push(`ChangeSet: ${file.parentChangeSetId}`);
+            descriptions.push(`ChangeSet: ${chalk.white(file.parentChangeSetId)}`);
         }
-        return descriptions.join(", ");
+        return descriptions.join("  ");
     }
 
     static getSchemaVersionString(version: SchemaVersion): string {

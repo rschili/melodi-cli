@@ -7,6 +7,7 @@ import { IModelsClient } from "@itwin/imodels-client-authoring";
 import { ECDb, ECDbOpenMode, SqliteStatement } from "@itwin/core-backend";
 import { DbResult } from "@itwin/core-bentley";
 import { printError } from "./ConsoleHelper";
+import { SemVer } from "semver";
 
 const WorkspaceConfigSchema = z.object({
     melodiVersion: z.string(),
@@ -142,6 +143,8 @@ export interface WorkspaceFile {
     beDbVersion?: SchemaVersion;
     ecDbVersion?: SchemaVersion;
     dgn_DbVersion?: SchemaVersion;
+    bisCoreVersion?: SemVer;
+    elements?: number; // Optional: number of bis_Element records in the iModel, if applicable
 }
 
 export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
@@ -250,6 +253,23 @@ async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<voi
                     }
                 }
             });
+
+            ecdb.withPreparedSqliteStatement("SELECT VersionDigit1, VersionDigit2, VersionDigit3 from ec_Schema WHERE Name = 'BisCore'", (stmt: SqliteStatement) => {
+                if (stmt.step() === DbResult.BE_SQLITE_ROW) {
+                    const major = stmt.getValueInteger(0);
+                    const minor = stmt.getValueInteger(1);
+                    const sub1 = stmt.getValueInteger(2);
+                    file.bisCoreVersion = new SemVer(`${major}.${minor}.${sub1}`);
+                }
+            });
+
+            if(file.bisCoreVersion !== undefined) {
+                ecdb.withPreparedSqliteStatement("SELECT COUNT(*) FROM bis_Element", (stmt: SqliteStatement) => {
+                    if (stmt.step() === DbResult.BE_SQLITE_ROW) {
+                        file.elements = stmt.getValueInteger(0);
+                    }
+                });
+            }
 
             ecdb.closeDb();
         } catch (error) {
