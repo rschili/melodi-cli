@@ -1,10 +1,9 @@
-import { ECDb, ECDbOpenMode, IModelHost } from "@itwin/core-backend";
-import { Workspace, WorkspaceFile } from "../Workspace";
+import { ECDb, ECDbOpenMode } from "@itwin/core-backend";
+import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
 import path from "path";
-import prompts from "prompts";
 import { select, Separator } from "@inquirer/prompts";
-import { ECSqlReader, QueryOptionsBuilder, QueryPropertyMetaData, QueryRowFormat } from "@itwin/core-common";
-import { exitProcessOnAbort, formatSuccess, formatWarning, printError } from "../ConsoleHelper";
+import { QueryOptionsBuilder, QueryPropertyMetaData, QueryRowFormat } from "@itwin/core-common";
+import { formatWarning, printError } from "../ConsoleHelper";
 import { stdin, stdout } from 'node:process';
 import { createInterface } from "node:readline/promises";
 import chalk from "chalk";
@@ -17,12 +16,7 @@ type Choice<T> = Exclude<
 >;
 
 export class ECDbEditor {
-    private static ecsqlHistory: string[] = [];
-
     public static async run(ws: Workspace, file: WorkspaceFile, openMode: ECDbOpenMode): Promise<void> {
-        await IModelHost.startup({
-            cacheDir: ws.cacheDirPath,
-        });
         using db: ECDb = new ECDb();
         db.openDb(path.join(ws.workspaceRootPath, file.relativePath), openMode);
         if(!db.isOpen) {
@@ -30,27 +24,22 @@ export class ECDbEditor {
         }
 
         while(true) {
-            const operationAnswer = await prompts({
-                name: "value",
-                type: "select",
+            const operation = await select({
                 message: `${file.relativePath} (ECDb, ${ECDbOpenMode[openMode]})`,
                 choices: [
-                    { title: "ECSql", value: "ECSql" },
-                    { title: "Sqlite", value: "Sqlite" },
-                    { title: "Stats", value: "Stats" },
-                    { title: "Schemas", value: "Schemas" },
-                    { title: "Close", value: "Close" }
+                    { name: "ECSql", value: "ECSql" },
+                    { name: "Sqlite", value: "Sqlite" },
+                    { name: "Stats", value: "Stats" },
+                    { name: "Schemas", value: "Schemas" },
+                    { name: "Close", value: "Close" }
                 ],
-                initial: 0,
-                onState: exitProcessOnAbort,
             });
-            const operation = operationAnswer.value;
 
             try {
                 switch (operation) {
                     case "ECSql":
                         console.log(chalk.gray(" (up/down for history, Ctrl+C to exit, use semicolon to end statement)"));
-                        while (await this.runECSql(db)) {}
+                        while (await this.runECSql(ws, db)) {}
                         break;
                     case "Sqlite":
                         console.log("Sqlite operation selected.");
@@ -74,7 +63,24 @@ export class ECDbEditor {
         }
     }
 
-    static async runECSql(db: ECDb): Promise<boolean> {
+    public static async getClassName(db: ECDb, classIdHex: string, cache: Record<string, string>): Promise<string> {
+        const reader = db.createQueryReader(
+            `SELECT Name FROM meta.ECClassDef WHERE ECInstanceId = HexToId('${classIdHex}') LIMIT 1`,
+            undefined,
+            { rowFormat: QueryRowFormat.UseECSqlPropertyIndexes }
+        );
+        const rows = await reader.toArray();
+        if (rows.length === 0) {
+            cache[classIdHex] = "UnknownClass";
+        } else {
+            const className = rows[0][0];
+            cache[classIdHex] = className;
+        }
+
+        return cache[classIdHex];
+    }
+
+    static async runECSql(ws: Workspace, db: ECDb): Promise<boolean> {
         const queryOptions = new QueryOptionsBuilder();
         queryOptions.setRowFormat(QueryRowFormat.UseECSqlPropertyIndexes);
         queryOptions.setLimit({ count: 101 }); // limiting to 101 rows for now. If we exceed 100 we print that we have more than 100 rows.
@@ -85,7 +91,7 @@ export class ECDbEditor {
             output: stdout,
             terminal: true,
             prompt: "ECSql> ",
-            history: this.ecsqlHistory,
+            history: ws.config?.ecsqlHistory,
         });
 
         let interrupted = false;
@@ -113,19 +119,34 @@ export class ECDbEditor {
             return false;
         }
 
-        const reader = db.createQueryReader(ecsql, undefined, queryOptions.getOptions());
-        const rows = await reader.toArray();
-        this.ecsqlHistory.push(ecsql);
-
-        if (rows === undefined || rows.length === 0) {
-            console.log("No rows returned.");
-            return true;
+        if(ws.config?.ecsqlHistory === undefined) {
+            ws.config!.ecsqlHistory = [];
         }
+        ws.config!.ecsqlHistory.push(ecsql);
+        saveWorkspaceConfig(ws);
 
-        const metadata = await reader.getMetaData();
-        if (metadata.length === 0) {
-            console.log("No metadata returned.");
-            return true;
+        let rows: any[] = [];
+        let metadata: QueryPropertyMetaData[] = [];
+        let classIdCache: Record<string, string> = {};
+
+        try {
+            const reader = db.createQueryReader(ecsql, undefined, queryOptions.getOptions());
+            rows = await reader.toArray();
+
+            if (rows === undefined || rows.length === 0) {
+                console.log("No rows returned.");
+                return true;
+            }
+
+            metadata = await reader.getMetaData();
+            if (metadata.length === 0) {
+                console.log("No metadata returned.");
+                return true;
+            }
+        } catch (error: unknown) {
+            console.error(formatWarning(`ECSql query failed: ${ecsql}`));
+            printError(error);
+            return true; // Return true to allow the user to enter a new query
         }
 
         const output: string[][] = [];
@@ -138,75 +159,125 @@ export class ECDbEditor {
         for (let colIndex = 0; colIndex < metadata.length; colIndex++) {
             const colInfo = metadata[colIndex];
             for (let rowIndex = 0; rowIndex <= maxRowIndex; rowIndex++) {
-                const value = rows[rowIndex][colIndex];
+                let value = await this.formatValue(rows[rowIndex][colIndex], colInfo, db, classIdCache);
 
                 if (colIndex === 0) {
                     output.push(new Array(metadata.length));
                 }
 
+                if(value === null || value === undefined) {
+                    value = ""; // Normalize null/undefined to empty string
+                }
+
                 if(value !== null && value !== undefined) {
                     let formattedValue = String(value);
-                    if (formattedValue.length > 100) {
-                        formattedValue = formattedValue.substring(0, 97) + "...";
-                    }
                     output[rowIndex + 2][colIndex] = formattedValue;
                 }
             }
         }
 
-        for(const row of output) {
-            console.log(row.map(cell => cell === undefined ? "" : cell).join(" | "));
-        }
+        this.normalizeCellWidths(output, process.stdout.columns);
+        this.printTable(output, 2);
 
         if( rows.length > 100) {
             console.log(formatWarning("More than 100 rows returned. Only the first 100 rows are displayed."));
         }
-
+        
         return true;
     }
 
-    static arrayToTable(metadata: QueryPropertyMetaData[], data: any[], headerCount: number = 0): string {
-        if (data.length === 0) {
+    static async formatValue(value: any, colInfo: QueryPropertyMetaData, db: ECDb, classIdCache: Record<string, string>): Promise<string> {
+        if (value === null || value === undefined) {
             return "";
         }
 
-        const headers: string[] = Array.from(data.reduce((headersSet, row) => {
-            Object.keys(row).forEach(header => headersSet.add(header));
-            return headersSet;
-        }, new Set<string>()));
+        if (typeof value === "string") {
+            return value;
+        }
 
-        const columnWidths = headers.map(header =>
-            Math.max(header.length, ...data.map(row => String(row[header]).length))
-        );
+        if (typeof value === "number" || typeof value === "boolean") {
+            return String(value);
+        }
 
-        const formatRow = (row: any) =>
-            `| ${headers.map((header, i) => String(row[header]).padEnd(columnWidths[i])).join(" | ")} |`;
+        if (colInfo.typeName === "navigation") {
+            const id = value.Id;
+            const classId = value.RelECClassId;
+            if (!id || !classId) {
+                return "";
+            }
+            const className = await this.getClassName(db, classId, classIdCache);
+            return `${className} ${id}`;
+        }
 
-        const headerRow = formatRow(headers.reduce((acc, header) => ({ ...acc, [header]: header }), {}));
-        const separatorRow = `| ${columnWidths.map(width => "-".repeat(width)).join(" | ")} |`;
-        const dataRows = data.map(formatRow);
+        if (Array.isArray(value)) {
+            return `[${value.map(v => this.formatValue(v, colInfo, db, classIdCache)).join(", ")}]`;
+        }
 
-        return [headerRow, separatorRow, ...dataRows].join("\n");
+        return JSON.stringify(value);
     }
 
-    static normalizeCellWidths(data: string[][]): void {
+    static normalizeCellWidths(data: string[][], maxWidth: number): void {
         if (data.length === 0) {
             return;
         }
+        if(maxWidth < 80) maxWidth = 80; // Ensure a minimum width for readability
 
-        const columnWidths: number[] = [];
-        for (const row of data) {
-            for (let i = 0; i < row.length; i++) {
-                const cell = row[i];
-                if (!columnWidths[i] || cell.length > columnWidths[i]) {
-                    columnWidths[i] = cell.length;
+        let columnWidths: number[] = [];
+        const minWidthPerColumn = 8;
+        const minRequiredWidth = data[0].length * minWidthPerColumn;
+        if (maxWidth < minRequiredWidth) {
+            columnWidths = new Array(data[0].length).fill(minWidthPerColumn);
+        } else {
+            for (const row of data) {
+                for (let i = 0; i < row.length; i++) {
+                    const cell = row[i];
+                    if(!cell)
+                        continue; // Skip undefined or null cells
+
+                    if (!columnWidths[i] || cell.length > columnWidths[i]) {
+                        columnWidths[i] = cell.length;
+                    }
+                }
+            }
+
+            // Ensure column widths do not exceed maxWidth
+            let totalWidth = columnWidths.reduce((sum, w) => sum + w, 0);
+            if (totalWidth > maxWidth) {
+                while (totalWidth > maxWidth) {
+                    // Find the index of the longest column
+                    let maxColIdx = 0;
+                    for (let i = 1; i < columnWidths.length; i++) {
+                        if (columnWidths[i] > columnWidths[maxColIdx]) {
+                            maxColIdx = i;
+                        }
+                    }
+                    // Cut its width in half (at least 8 chars wide)
+                    columnWidths[maxColIdx] = Math.max(8, Math.floor(columnWidths[maxColIdx] / 2));
+                    totalWidth = columnWidths.reduce((sum, w) => sum + w, 0);
                 }
             }
         }
 
         for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
             for (let colIndex = 0; colIndex < data[rowIndex].length; colIndex++) {
-                data[rowIndex][colIndex] = data[rowIndex][colIndex].padEnd(columnWidths[colIndex]);
+                const value = data[rowIndex][colIndex];
+                if (value === undefined || value === null) {
+                    data[rowIndex][colIndex] = "".padEnd(columnWidths[colIndex]);
+                } else if (typeof value !== "string") {
+                    let stringValue = String(value);
+                    if(stringValue.length > columnWidths[colIndex]) {
+                        stringValue = stringValue.slice(0, columnWidths[colIndex] - 3) + "...";
+                    } else if (stringValue.length < columnWidths[colIndex]) {
+                        stringValue = stringValue.padEnd(columnWidths[colIndex]);
+                    }
+                    data[rowIndex][colIndex] = stringValue;
+                } else {
+                    if (value.length > columnWidths[colIndex]) {
+                        data[rowIndex][colIndex] = value.slice(0, columnWidths[colIndex] - 3) + "...";
+                    } else if (value.length < columnWidths[colIndex]) {
+                        data[rowIndex][colIndex] = data[rowIndex][colIndex].padEnd(columnWidths[colIndex]);
+                    }
+                }
             }
         }
     }
@@ -217,7 +288,7 @@ export class ECDbEditor {
             return;
         }
 
-        const horizontalLine = "+-" + data[0].map((headerValue) => "-".repeat(headerValue.length)).join("-+-") + "-+";
+        const horizontalLine = data[0].map((headerValue) => "-".repeat(headerValue.length)).join("+");
 
         console.log();
         console.log(horizontalLine);
@@ -225,7 +296,7 @@ export class ECDbEditor {
             if (i === headerCount && headerCount > 0) {
                 console.log(horizontalLine);
             }
-            console.log("| " + data[i].map(cell => cell ?? "").join(" | ") + " |");
+            console.log(data[i].map(cell => cell ?? "").join(" "));
         }
         if (data.length > headerCount) {
             console.log(horizontalLine);

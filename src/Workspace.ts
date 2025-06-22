@@ -3,9 +3,11 @@ import path from "path";
 import os from "os";
 import { z } from "zod/v4";
 import { globby } from 'globby';
+import { IModelsClient } from "@itwin/imodels-client-authoring";
 
 const WorkspaceConfigSchema = z.object({
     melodiVersion: z.string(),
+    ecsqlHistory: z.array(z.string()).optional(),
 });
 
 export type WorkspaceConfig = z.infer<typeof WorkspaceConfigSchema>;
@@ -30,6 +32,10 @@ export interface Workspace {
     cacheDirPath: string;
     config?: WorkspaceConfig;
     files?: WorkspaceFile[];
+
+    // Optional: if iModelHost::Startup has been called with a specific environment, this will be set
+    iModelClientEnvironment?: Environment;
+    IModelsClient?: IModelsClient;
 }
 
 export async function loadWorkspace(root: string = process.cwd()): Promise<Workspace> {

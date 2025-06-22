@@ -1,5 +1,5 @@
 
-import prompts from "prompts";
+import { input, select } from "@inquirer/prompts";
 import { NodeCliAuthorizationClient } from "@itwin/node-cli-authorization";
 import { GoogleClientStorage } from "@itwin/object-storage-google/lib/client";
 import { ClientStorageWrapperFactory } from "@itwin/object-storage-google/lib/client/wrappers";
@@ -14,19 +14,14 @@ import { Environment, FileType, Workspace } from "../Workspace";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
-        const workspaceTypeAnswer = await prompts({
-            name: "value",
-            type: "select",
+        const workspaceType = await select({
             message: 'What type of file do you want to create?',
             choices: [
-                { title: 'Briefcase', value: FileType.BRIEFCASE, description: 'Connects to iModelHub and pulls a briefcase of an existing iModel you have access to.' },
-                { title: 'ECDb', value: FileType.ECDB, description: 'Initialize with a blank ECDb (SQLite) database.' },
-                { title: 'Standalone', value: FileType.STANDALONE, description: 'Creates an empty standalone iModel.' },
+                { name: 'Briefcase', value: FileType.BRIEFCASE, description: 'Connects to iModelHub and pulls a briefcase of an existing iModel you have access to.' },
+                { name: 'ECDb', value: FileType.ECDB, description: 'Initialize with a blank ECDb (SQLite) database.' },
+                { name: 'Standalone', value: FileType.STANDALONE, description: 'Creates an empty standalone iModel.' },
             ],
-            initial: 0,
-            onState: exitProcessOnAbort,
         });
-        const workspaceType: FileType = workspaceTypeAnswer.value;
 
         switch (workspaceType) {
             case FileType.BRIEFCASE:
@@ -39,19 +34,14 @@ export class NewFile {
     }
 
     public static async initBriefcase(): Promise<void> {
-        const envAnswer = await prompts({
-            name: "value",
-            type: "select",
+        const environment = await select({
             message: "Select an environment",
             choices: [
-                {title: "PROD", value: Environment.PROD },
-                {title: "QA", value: Environment.QA },
-                {title: "DEV", value: Environment.DEV },
+                {name: "PROD", value: Environment.PROD },
+                {name: "QA", value: Environment.QA },
+                {name: "DEV", value: Environment.DEV },
             ],
-            initial: 0,
-            onState: exitProcessOnAbort,
         });
-        const environment = envAnswer.value as Environment;
 
         const authority = environment === Environment.PROD ? "https://ims.bentley.com/" : environment === Environment.QA ? "https://qa-ims.bentley.com/" : "https://dev-ims.bentley.com/";
         if(environment !== Environment.PROD) {
@@ -99,28 +89,19 @@ export class NewFile {
         }*/
         const iModelsCLient = new IModelsClient(iModelsClientOptions);
 
-        const methodAnswer = await prompts({
-            name: "value",
-            type: "select",
+        const method = await select({
             message: 'Choose the method to connect',
             choices: [
-                { title: "Load available iModel IDs for a provided iTwin ID", value: "iTwin" },
-                { title: "Load a single iModel by ID", value: "iModel" }
+                { name: "Load available iModel IDs for a provided iTwin ID", value: "iTwin" },
+                { name: "Load a single iModel by ID", value: "iModel" }
             ],
-            initial: 0,
-            onState: exitProcessOnAbort,
         });
-        const method: "iTwin" | "iModel" = methodAnswer.value;
 
         let iModelId: string | undefined = undefined;
 
-        const idAnswer = await prompts({
-            name: "value",
-            type: "text",
+        const id = await input({
             message: `Please provide the ${method} ID`,
-            onState: exitProcessOnAbort,
         });
-        const id = idAnswer.value;
 
         if (method === "iTwin") {
             const iModelIterator = iModelsCLient.iModels.getMinimalList({
@@ -133,7 +114,7 @@ export class NewFile {
             const iModelChoices = [];
             for await (const iModel of iModelIterator) {
                 iModelChoices.push({
-                    title: `${iModel.displayName} (ID: ${iModel.id})`,
+                    name: `${iModel.displayName} (ID: ${iModel.id})`,
                     value: iModel.id,
                 });
             }
@@ -143,15 +124,10 @@ export class NewFile {
                 return;
             }
 
-            const iModelAnswer = await prompts({
-                name: "value",
-                type: "select",
+            iModelId = await select({
                 message: 'Select an iModel',
                 choices: iModelChoices,
-                initial: 0,
-                onState: exitProcessOnAbort,
             });
-            iModelId = iModelAnswer.value;
         } else {
             iModelId = id;
         }

@@ -17,7 +17,7 @@ export class FileOperations {
 
         let response: DbApiKind | string | undefined; 
         if (file.fileType === FileType.BRIEFCASE || file.fileType === FileType.STANDALONE) {
-            const dbApiKindResponse = await select<DbApiKind | string>({
+            response = await select<DbApiKind | string>({
                 message: 'You can open the file as low level ECDb or as iModelDb. Which one do you want to use?',
                 choices: [
                     { name: "Open as ECDb", value: DbApiKind.ECDb },
@@ -26,7 +26,7 @@ export class FileOperations {
                 ],
             });
         } else {
-            const dbApiKindResponse = await select<DbApiKind | string>({
+            response = await select<DbApiKind | string>({
                 message: 'You can open the file as low level ECDb or as iModelDb. Which one do you want to use?',
                 choices: [
                     { name: "Open", value: DbApiKind.ECDb },

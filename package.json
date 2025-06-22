@@ -53,7 +53,6 @@
     "chalk": "^5.4.1",
     "globby": "^14.1.0",
     "gradient-string": "^3.0.0",
-    "prompts": "^2.4.2",
     "semver": "^7.7.2",
     "ts-progress": "^0.1.9",
     "yocto-spinner": "^1.0.0",

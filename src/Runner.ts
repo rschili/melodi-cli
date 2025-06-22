@@ -5,7 +5,8 @@ import { Initialize } from "./Logic/Initialize";
 import { exitProcessOnAbort, formatPath, formatWarning } from "./ConsoleHelper";
 import { WorkspaceManager } from "./Logic/WorkspaceManager";
 import * as fs from 'fs';
-import prompts from 'prompts';
+import { confirm } from "@inquirer/prompts";
+import { IModelHost } from "@itwin/core-backend";
 
 export class Runner {
     public async run(): Promise<void> {
@@ -20,15 +21,11 @@ export class Runner {
             }
         } else {
             console.log(`No workspace configuration found.`);
-            const response = await prompts({
-                type: 'confirm',
-                name: 'init',
+            const response = await confirm({
                 message: `Do you want to initialize a new workspace at ${formatPath(workspace.workspaceRootPath)}?`,
-                onState: exitProcessOnAbort,
             });
 
-            const init = response.init;
-            if(!init)
+            if(!response)
                 return;
 
         await Initialize.run(workspace);
@@ -38,6 +35,15 @@ export class Runner {
             await fs.promises.mkdir(workspace.cacheDirPath, { recursive: true });
         }
 
-        await WorkspaceManager.run(workspace);
+        // Initialize the IModelHost here so it's ready. If we connect to a briefcase we will have to re-initialize it with hubAccess available.
+        await IModelHost.startup({
+            cacheDir: workspace.cacheDirPath,
+        });
+
+        try {
+            await WorkspaceManager.run(workspace);
+        } finally {
+            await IModelHost.shutdown();
+        }
     }
 }
