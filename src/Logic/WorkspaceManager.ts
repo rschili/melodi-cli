@@ -1,9 +1,14 @@
-import { detectWorkspaceFiles, Workspace, WorkspaceFile } from "../Workspace";
+import { detectWorkspaceFiles, SchemaVersion, Workspace, WorkspaceFile } from "../Workspace";
 import { withTimeout } from "../PromiseHelper";
 import { NewFile } from "./NewFile";
 import { FileOperations } from "./FileOperations";
-import { select } from "@inquirer/prompts";
+import { select, Separator } from "@inquirer/prompts";
 import yoctoSpinner from "yocto-spinner";
+
+type Choice<T> = Exclude<
+  Parameters<typeof select<T>>[0]["choices"][number],
+  string | Separator
+>;
 
 export class WorkspaceManager {
     public static async run(ws: Workspace): Promise<void> {
@@ -28,10 +33,11 @@ export class WorkspaceManager {
                 console.log("Workspace is curently empty");
             }
 
-            const fileChoices = [];
+            const fileChoices: Choice<WorkspaceFile>[] = [];
             if(ws.files !== undefined) {
                 fileChoices.push(...ws.files!.map(file => ({
                     name: `${file.relativePath} (${file.fileType})`, 
+                    description: WorkspaceManager.getFileDescription(file),
                     value: file,})));
 
                 fileChoices.sort((a, b) => {
@@ -67,6 +73,27 @@ export class WorkspaceManager {
 
             await FileOperations.run(ws, choice as WorkspaceFile)
         }
+    }
+
+    static getFileDescription(file: WorkspaceFile): string {
+        const descriptions: string[] = [];
+        if(file.ecDbVersion !== undefined) {
+            descriptions.push(`ECDb ${WorkspaceManager.getSchemaVersionString(file.ecDbVersion)}`);
+        }
+        if(file.beDbVersion !== undefined) {
+            descriptions.push(`BeDb ${WorkspaceManager.getSchemaVersionString(file.beDbVersion)}`);
+        }
+        if(file.dgn_DbVersion !== undefined) {
+            descriptions.push(`DgnDb ${WorkspaceManager.getSchemaVersionString(file.dgn_DbVersion)}`);
+        }
+        if(file.parentChangeSetId !== undefined) {
+            descriptions.push(`ChangeSet: ${file.parentChangeSetId}`);
+        }
+        return descriptions.join(", ");
+    }
+
+    static getSchemaVersionString(version: SchemaVersion): string {
+        return `${version.major}.${version.minor}.${version.sub1}.${version.sub2}`;
     }
 
 

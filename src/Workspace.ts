@@ -4,6 +4,9 @@ import os from "os";
 import { z } from "zod/v4";
 import { globby } from 'globby';
 import { IModelsClient } from "@itwin/imodels-client-authoring";
+import { ECDb, ECDbOpenMode, SqliteStatement } from "@itwin/core-backend";
+import { DbResult } from "@itwin/core-bentley";
+import { printError } from "./ConsoleHelper";
 
 const WorkspaceConfigSchema = z.object({
     melodiVersion: z.string(),
@@ -135,6 +138,10 @@ export interface WorkspaceFile {
     relativePath: string;
     fileType: FileType;
     lastTouched: Date;
+    parentChangeSetId?: string;
+    beDbVersion?: SchemaVersion;
+    ecDbVersion?: SchemaVersion;
+    dgn_DbVersion?: SchemaVersion;
 }
 
 export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
@@ -187,6 +194,73 @@ export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
         };
     });
 
+    await readFileProps(ws, workspaceFiles);
     ws.files = workspaceFiles;
 
+}
+
+const schemaVersionSchema = z.object({
+    major: z.number(),
+    minor: z.number(),
+    sub1: z.number(),
+    sub2: z.number(),
+});
+
+export type SchemaVersion = z.infer<typeof schemaVersionSchema>;
+
+async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<void> {
+    if (files.length === 0) {
+        return;
+    }
+
+    using ecdb = new ECDb();
+    for (const file of files) {
+        try {
+            const absolutePath = path.join(ws.workspaceRootPath, file.relativePath);
+            ecdb.openDb(absolutePath, ECDbOpenMode.Readonly);
+            ecdb.withPreparedSqliteStatement("SELECT Name, Val FROM be_Local", (stmt: SqliteStatement) => {
+                while (stmt.step() === DbResult.BE_SQLITE_ROW) {
+                    const name = stmt.getValueString(0);
+                    if(name === "ParentChangeSetId") {
+                        file.parentChangeSetId = stmt.getValueString(1);
+                    }
+                }
+            });
+            
+            ecdb.withPreparedSqliteStatement("SELECT Namespace, StrData FROM be_Prop WHERE Name = 'SchemaVersion'", (stmt: SqliteStatement) => {
+                while (stmt.step() === DbResult.BE_SQLITE_ROW) {
+                    const namespace = stmt.getValueString(0);
+                    const schemaVersion = stmt.getValueString(1);
+                    const parsedSchemaVersion = schemaVersionSchema.safeParse(JSON.parse(schemaVersion));
+                    if (parsedSchemaVersion.success) {
+                        switch (namespace.toLowerCase()) {
+                            case "be_db":
+                                file.beDbVersion = parsedSchemaVersion.data;
+                                break;
+                            case "ec_db":
+                                file.ecDbVersion = parsedSchemaVersion.data;
+                                break;
+                            case "dgn_db":
+                                file.dgn_DbVersion = parsedSchemaVersion.data;
+                                break;
+                            default:
+                                console.warn(`Unknown schema version namespace: ${namespace}. This may not be supported by melodi.`);
+                                break;
+                        }
+                    }
+                }
+            });
+
+            ecdb.closeDb();
+        } catch (error) {
+            printError(error);
+        } finally {
+            if(ecdb.isOpen) {
+                ecdb.closeDb();
+            }
+        }
+    }
+    
+
+    
 }
