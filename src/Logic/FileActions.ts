@@ -3,7 +3,7 @@ import { ECDbOpenMode } from "@itwin/core-backend";
 import { DbEditor } from "./FileEditor";
 import { select } from "@inquirer/prompts";
 import { Backup } from "./Backup";
-import { openECDb, UnifiedDb } from "../UnifiedDb";
+import { openECDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb";
 import path from "path";
 
 export enum DbApiKind {
@@ -48,6 +48,7 @@ export class FileActions {
         switch (kind) {
             case DbApiKind.BriefcaseDb:
             case DbApiKind.StandaloneDb:
+                return openStandaloneDb(absolutePath);
             case DbApiKind.SnapshotDb:
             case DbApiKind.SQLiteDb:
                 // These types are not supported in the current implementation.

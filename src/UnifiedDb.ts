@@ -1,6 +1,7 @@
 import { select } from "@inquirer/prompts";
 import { BriefcaseDb, ECDb, ECDbOpenMode, IModelDb, SnapshotDb, SQLiteDb, StandaloneDb } from "@itwin/core-backend";
 import { ECSqlReader, QueryBinder, QueryOptions } from "@itwin/core-common";
+import { OpenMode } from "@itwin/core-bentley";
 
 /**
  * Common interface for all DB implementations.
@@ -55,7 +56,7 @@ export class UnifiedDb implements Disposable {
 
     public createQueryReader(ecsql: string, params?: QueryBinder, config?: QueryOptions): ECSqlReader {
         if (this.db instanceof IModelDb) {
-            this.db.createQueryReader(ecsql, params, config);
+            return this.db.createQueryReader(ecsql, params, config);
         }
         if (this.db instanceof ECDb) {
             return this.db.createQueryReader(ecsql, params, config);
@@ -93,7 +94,7 @@ export class UnifiedDb implements Disposable {
  * Factory and opener functions for each DB type.
  */
 export async function openECDb(path: string): Promise<UnifiedDb> {
-    const mode = await promptOpenMode();
+    const mode = await promptECDbOpenMode();
     const db = new ECDb();
     db.openDb(path, mode);
     return new UnifiedDb(db);
@@ -105,13 +106,29 @@ export function createECDb(path: string): UnifiedDb {
     return new UnifiedDb(db);
 }
 
-async function promptOpenMode(): Promise<ECDbOpenMode> {
+export async function openStandaloneDb(path: string): Promise<UnifiedDb> {
+    const mode = await promptOpenMode();
+    const db = StandaloneDb.openFile(path, mode);
+    return new UnifiedDb(db);
+}
+
+async function promptECDbOpenMode(): Promise<ECDbOpenMode> {
     return await select({
         message: 'Select the open mode for the file',
         choices: [
         { name: "Open in read-only mode", value: ECDbOpenMode.Readonly, short: "read-only" },
         { name: "Open in read-write mode", value: ECDbOpenMode.ReadWrite, short: "read-write" },
         { name: "Open the file in read-write mode and upgrade it to the latest file format version if necessary.", value: ECDbOpenMode.FileUpgrade, short: "file-upgrade" },
+        ],
+    });
+}
+
+async function promptOpenMode(): Promise<OpenMode> {
+    return await select({
+        message: 'Select the open mode for the file',
+        choices: [
+        { name: "Open in read-only mode", value: OpenMode.Readonly, short: "read-only" },
+        { name: "Open in read-write mode", value: OpenMode.ReadWrite, short: "read-write" },
         ],
     });
 }
