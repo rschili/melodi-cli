@@ -1,6 +1,4 @@
-import { ECDb, ECDbOpenMode } from "@itwin/core-backend";
 import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
-import path from "path";
 import { select, Separator } from "@inquirer/prompts";
 import { QueryBinder, QueryOptionsBuilder, QueryPropertyMetaData, QueryRowFormat } from "@itwin/core-common";
 import { formatWarning, printError } from "../ConsoleHelper";
@@ -9,6 +7,7 @@ import { createInterface } from "node:readline/promises";
 import chalk from "chalk";
 import { loadSchemaInventory } from "../GithubBisSchemasHelper";
 import semver from "semver";
+import { UnifiedDb } from "../UnifiedDb";
 
 type Choice<T> = Exclude<
   Parameters<typeof select<T>>[0]["choices"][number],
@@ -22,19 +21,17 @@ type SchemaInfo = {
     path?: string;
 };
 
-export class ECDbEditor {
-    public static async run(ws: Workspace, file: WorkspaceFile, openMode: ECDbOpenMode): Promise<void> {
-        using db: ECDb = new ECDb();
-        db.openDb(path.join(ws.workspaceRootPath, file.relativePath), openMode);
+export class DbEditor {
+    public static async run(ws: Workspace, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
         if(!db.isOpen) {
-            throw new Error(`Failed to open ECDb file: ${file.relativePath}`);
+            throw new Error(`Db failed to open: ${file.relativePath}`);
         }
 
         while(true) {
             const operation = await select({
-                message: `${file.relativePath} (ECDb, ${ECDbOpenMode[openMode]})`,
+                message: `${file.relativePath}${(db.isReadOnly ? ' (read-only)': '')}`,
                 choices: [
-                    { name: "ECSql", value: "ECSql" },
+                    { name: "ECSql", value: "ECSql", disabled: !db.supportsECSql },
                     { name: "Sqlite", value: "Sqlite" },
                     { name: "Stats", value: "Stats" },
                     { name: "Schemas", value: "Schemas", description: chalk.yellowBright("On ECDb level, the support for importing schemas is limited to a single schema at a time. Use iModelDb if you need more options.") },
@@ -60,7 +57,6 @@ export class ECDbEditor {
                         await this.runSchemas(ws, db);
                         break;
                     case "Close":
-                        db.closeDb();
                         console.log("database closed.");
                         return;
                 }
@@ -70,7 +66,7 @@ export class ECDbEditor {
         }
     }
 
-    public static async getClassName(db: ECDb, classIdHex: string, cache: Record<string, string>): Promise<string> {
+    public static async getClassName(db: UnifiedDb, classIdHex: string, cache: Record<string, string>): Promise<string> {
         const params = new QueryBinder();
         params.bindId(1, classIdHex);
         const reader = db.createQueryReader(
@@ -89,7 +85,7 @@ export class ECDbEditor {
         return cache[classIdHex];
     }
 
-    static async runECSql(ws: Workspace, db: ECDb): Promise<boolean> {
+    static async runECSql(ws: Workspace, db: UnifiedDb): Promise<boolean> {
         const queryOptions = new QueryOptionsBuilder();
         queryOptions.setRowFormat(QueryRowFormat.UseECSqlPropertyIndexes);
         queryOptions.setLimit({ count: 101 }); // limiting to 101 rows for now. If we exceed 100 we print that we have more than 100 rows.
@@ -166,7 +162,7 @@ export class ECDbEditor {
         const output: string[][] = [];
         const headerRow = metadata.map(col => col.name);
         output.push(headerRow);
-        const typeRow = metadata.map(col => (col.extendedType === undefined ? col.typeName : `${col.typeName} (${col.extendedType})`));
+        const typeRow = metadata.map(col => (col.extendedType === undefined ? col.typeName : col.extendedType));
         output.push(typeRow);
 
         const maxRowIndex = rows.length > 100 ? 99 : rows.length -1;
@@ -200,7 +196,7 @@ export class ECDbEditor {
         return true;
     }
 
-    static async formatValue(value: any, colInfo: QueryPropertyMetaData, db: ECDb, classIdCache: Record<string, string>): Promise<string> {
+    static async formatValue(value: any, colInfo: QueryPropertyMetaData, db: UnifiedDb, classIdCache: Record<string, string>): Promise<string> {
         if (value === null || value === undefined) {
             return "";
         }
@@ -255,7 +251,7 @@ export class ECDbEditor {
             }
 
             // Ensure column widths do not exceed maxWidth
-            let totalWidth = columnWidths.reduce((sum, w) => sum + w, 0);
+            let totalWidth = columnWidths.reduce((sum, w) => sum + w, 0) + (columnWidths.length * 3); // for padding;
             if (totalWidth > maxWidth) {
                 while (totalWidth > maxWidth) {
                     // Find the index of the longest column
@@ -267,7 +263,7 @@ export class ECDbEditor {
                     }
                     // Cut its width in half (at least 8 chars wide)
                     columnWidths[maxColIdx] = Math.max(8, Math.floor(columnWidths[maxColIdx] / 2));
-                    totalWidth = columnWidths.reduce((sum, w) => sum + w, 0);
+                    totalWidth = columnWidths.reduce((sum, w) => sum + w, 0) + (columnWidths.length * 3); // for padding;
                 }
             }
         }
@@ -302,22 +298,22 @@ export class ECDbEditor {
             return;
         }
 
-        const horizontalLine = data[0].map((headerValue) => "-".repeat(headerValue.length)).join("+");
+        const horizontalLine = chalk.gray(data[0].map((headerValue) => "-".repeat(headerValue.length)).join("-+-"));
 
         console.log();
-        console.log(horizontalLine);
         for (let i = 0; i < data.length; i++) {
             if (i === headerCount && headerCount > 0) {
                 console.log(horizontalLine);
             }
-            console.log(data[i].map(cell => cell ?? "").join(" "));
+            const isHeader = i < headerCount;
+            console.log(data[i].map(cell => (isHeader && i === 0 ? chalk.bold(cell) : cell)).join(isHeader ? "   " : chalk.gray(" | ")));
         }
         if (data.length > headerCount) {
             console.log(horizontalLine);
         }
     }
 
-    static async runSchemas(ws: Workspace, db: ECDb): Promise<void> {
+    static async runSchemas(ws: Workspace, db: UnifiedDb): Promise<void> {
         //Workflow:
         // 1. Get schemas in DB, and available schemas
         // 2. Build a list of choices + info about available updates

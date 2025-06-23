@@ -10,26 +10,33 @@ import { LogBuffer } from "../LogBuffer";
 import { withTimeout } from "../PromiseHelper";
 import yoctoSpinner from "yocto-spinner";
 import { printError, formatError } from "../ConsoleHelper";
-import { Environment, FileType, Workspace } from "../Workspace";
+import { Environment, Workspace } from "../Workspace";
+import { DbApiKind } from "./FileActions";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
         const workspaceType = await select({
-            message: 'What type of file do you want to create?',
+            message: 'Which API do you want to use to create a file?',
             choices: [
-                { name: 'Briefcase', value: FileType.BRIEFCASE, description: 'Connects to iModelHub and pulls a briefcase of an existing iModel you have access to.' },
-                { name: 'ECDb', value: FileType.ECDB, description: 'Initialize with a blank ECDb (SQLite) database.' },
-                { name: 'Standalone', value: FileType.STANDALONE, description: 'Creates an empty standalone iModel.' },
+                { name: 'Briefcase', value: DbApiKind.BriefcaseDb },
+                { name: 'ECDb', value: DbApiKind.ECDb },
+                { name: 'Standalone', value: DbApiKind.StandaloneDb },
+                { name: 'Snapshot', value: DbApiKind.SnapshotDb },
+                { name: 'SQLite', value: DbApiKind.SQLiteDb },
             ],
         });
 
         switch (workspaceType) {
-            case FileType.BRIEFCASE:
+            case DbApiKind.BriefcaseDb:
                 return this.initBriefcase();
-            case FileType.ECDB:
+            case DbApiKind.ECDb:
                 throw new Error("ECDb workspace initialization is not yet implemented.");
-            case FileType.STANDALONE:
-                throw new Error("Standalone workspace initialization is not yet implemented.");
+            case DbApiKind.StandaloneDb:
+                throw new Error("StandaloneDb workspace initialization is not yet implemented.");
+            case DbApiKind.SnapshotDb:
+                throw new Error("SnapshotDb workspace initialization is not yet implemented.");
+            case DbApiKind.SQLiteDb:
+                throw new Error("SQLiteDb workspace initialization is not yet implemented.");
         }
     }
 

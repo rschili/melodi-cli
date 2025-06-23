@@ -4,8 +4,8 @@ import os from "os";
 import { z } from "zod/v4";
 import { globby } from 'globby';
 import { IModelsClient } from "@itwin/imodels-client-authoring";
-import { ECDb, ECDbOpenMode, SqliteStatement } from "@itwin/core-backend";
-import { DbResult } from "@itwin/core-bentley";
+import { SQLiteDb, SqliteStatement } from "@itwin/core-backend";
+import { DbResult, OpenMode } from "@itwin/core-bentley";
 import { printError } from "./ConsoleHelper";
 import { SemVer } from "semver";
 
@@ -48,15 +48,8 @@ export enum Environment {
     DEV = 'DEV',
 }
 
-export enum FileType {
-    BRIEFCASE = 'Briefcase',
-    ECDB = 'ECDb',
-    STANDALONE = 'Standalone',
-}
-
 export type WorkspaceFile = {
     relativePath: string;
-    fileType: FileType;
     lastTouched: Date;
     parentChangeSetId?: string;
     beDbVersion?: SchemaVersion;
@@ -172,26 +165,11 @@ export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
         const dirName = path.join(ws.workspaceRootPath, path.dirname(file));
         const absolutePath = path.join(ws.workspaceRootPath, file);
 
-        let fileType: FileType;
-        if (ext === '.ecdb') {
-            fileType = FileType.ECDB;
-        } else if (ext === '.bim') {
-            const dotFolderPath = path.join(dirName, `.${baseName}`);
-            if (fs.existsSync(dotFolderPath) && fs.lstatSync(dotFolderPath).isDirectory()) {
-            fileType = FileType.BRIEFCASE;
-            } else {
-            fileType = FileType.STANDALONE;
-            }
-        } else {
-            throw new Error(`Unsupported file type: ${file}`);
-        }
-
         const stats = fs.statSync(absolutePath);
         const lastTouched = new Date(Math.max(stats.mtime.getTime(), stats.birthtime.getTime(), stats.ctime.getTime()));
 
         return {
             relativePath: file,
-            fileType,
             lastTouched,
         };
     });
@@ -215,12 +193,12 @@ async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<voi
         return;
     }
 
-    using ecdb = new ECDb();
+    const db = new SQLiteDb();
     for (const file of files) {
         try {
             const absolutePath = path.join(ws.workspaceRootPath, file.relativePath);
-            ecdb.openDb(absolutePath, ECDbOpenMode.Readonly);
-            ecdb.withPreparedSqliteStatement("SELECT Name, Val FROM be_Local", (stmt: SqliteStatement) => {
+            db.openDb(absolutePath, OpenMode.Readonly);
+            db.withPreparedSqliteStatement("SELECT Name, Val FROM be_Local", (stmt: SqliteStatement) => {
                 while (stmt.step() === DbResult.BE_SQLITE_ROW) {
                     const name = stmt.getValueString(0);
                     if(name === "ParentChangeSetId") {
@@ -229,7 +207,7 @@ async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<voi
                 }
             });
             
-            ecdb.withPreparedSqliteStatement("SELECT Namespace, StrData FROM be_Prop WHERE Name = ?", (stmt: SqliteStatement) => {
+            db.withPreparedSqliteStatement("SELECT Namespace, StrData FROM be_Prop WHERE Name = ?", (stmt: SqliteStatement) => {
                 stmt.bindString(1, "SchemaVersion");
                 while (stmt.step() === DbResult.BE_SQLITE_ROW) {
                     const namespace = stmt.getValueString(0);
@@ -254,7 +232,7 @@ async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<voi
                 }
             });
 
-            ecdb.withPreparedSqliteStatement("SELECT VersionDigit1, VersionDigit2, VersionDigit3 from ec_Schema WHERE Name = ?", (stmt: SqliteStatement) => {
+            db.withPreparedSqliteStatement("SELECT VersionDigit1, VersionDigit2, VersionDigit3 from ec_Schema WHERE Name = ?", (stmt: SqliteStatement) => {
                 stmt.bindString(1, "BisCore");
                 if (stmt.step() === DbResult.BE_SQLITE_ROW) {
                     const major = stmt.getValueInteger(0);
@@ -265,19 +243,19 @@ async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<voi
             });
 
             if(file.bisCoreVersion !== undefined) {
-                ecdb.withPreparedSqliteStatement("SELECT COUNT(*) FROM bis_Element", (stmt: SqliteStatement) => {
+                db.withPreparedSqliteStatement("SELECT COUNT(*) FROM bis_Element", (stmt: SqliteStatement) => {
                     if (stmt.step() === DbResult.BE_SQLITE_ROW) {
                         file.elements = stmt.getValueInteger(0);
                     }
                 });
             }
 
-            ecdb.closeDb();
+            db.closeDb();
         } catch (error) {
             printError(error);
         } finally {
-            if(ecdb.isOpen) {
-                ecdb.closeDb();
+            if(db.isOpen) {
+                db.closeDb();
             }
         }
     }

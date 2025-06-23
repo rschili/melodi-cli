@@ -1,7 +1,7 @@
 import { detectWorkspaceFiles, SchemaVersion, Workspace, WorkspaceFile } from "../Workspace";
 import { withTimeout } from "../PromiseHelper";
 import { NewFile } from "./NewFile";
-import { FileOperations } from "./FileOperations";
+import { FileActions } from "./FileActions";
 import { select, Separator } from "@inquirer/prompts";
 import yoctoSpinner from "yocto-spinner";
 import chalk from "chalk";
@@ -38,7 +38,7 @@ export class WorkspaceManager {
             const fileChoices: Choice<WorkspaceFile>[] = [];
             if(ws.files !== undefined) {
                 fileChoices.push(...ws.files!.map(file => ({
-                    name: `${file.relativePath} (${file.fileType})`, 
+                    name: file.relativePath, 
                     description: WorkspaceManager.getFileDescription(file),
                     value: file,})));
 
@@ -89,7 +89,7 @@ export class WorkspaceManager {
                 continue; // re-run the loop after creating a new Db
             }
 
-            await FileOperations.run(ws, choice as WorkspaceFile)
+            await FileActions.run(ws, choice as WorkspaceFile)
         }
     }
 
