@@ -10,6 +10,7 @@ import { loadSchemaInventory } from "../GithubBisSchemasHelper";
 import { UnifiedDb } from "../UnifiedDb";
 import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
 import { common, createEmphasize } from 'emphasize'
+import { performance } from "node:perf_hooks";
 
 type Choice<T> = Exclude<
     Parameters<typeof select<T>>[0]["choices"][number],
@@ -146,7 +147,8 @@ export class DbEditor {
         let rows: any[] = [];
         let metadata: QueryPropertyMetaData[] = [];
         let classIdCache: Record<string, string> = {};
-
+        const startTicks = performance.now();
+        let queryDuration = 0;
         try {
             const reader = db.createQueryReader(ecsql, undefined, queryOptions.getOptions());
             rows = await reader.toArray();
@@ -161,6 +163,8 @@ export class DbEditor {
                 console.log("No metadata returned.");
                 return true;
             }
+
+            queryDuration = performance.now() - startTicks;
         } catch (error: unknown) {
             console.error(formatWarning(`ECSql query failed: ${ecsql}`));
             printError(error);
@@ -226,6 +230,12 @@ export class DbEditor {
 
         if (rows.length > 100) {
             console.log(formatWarning("More than 100 rows returned. Only the first 100 rows are displayed."));
+        }
+
+        if( queryDuration < 1000) {
+            console.log(`Executed in ${queryDuration.toFixed()} ms.`);
+        } else {
+            console.log(`Executed in ${(queryDuration / 1000).toFixed(2)} seconds.`);
         }
 
         return true;

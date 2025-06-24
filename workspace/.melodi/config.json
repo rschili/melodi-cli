@@ -1,6 +1,7 @@
 {
   "melodiVersion": "1.0.0",
   "ecsqlHistory": [
+    "select * from bis.element LIMIT 3;",
     "select ECInstanceId, ECClassId from bis.element WHERE ECInstanceId = HexToId('0x13');",
     "select ECInstanceId, ECClassId from bis.element WHERE ECInstanceId = '0x13';",
     "select ECInstanceId, ECClassId from bis.element WHERE ECInstanceId = 0x13;",
