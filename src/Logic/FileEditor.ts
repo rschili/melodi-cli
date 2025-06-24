@@ -1,17 +1,19 @@
-import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
 import { select, Separator } from "@inquirer/prompts";
 import { QueryBinder, QueryOptionsBuilder, QueryPropertyMetaData, QueryRowFormat } from "@itwin/core-common";
-import { formatWarning, printError } from "../ConsoleHelper";
+import chalk from "chalk";
 import { stdin, stdout } from 'node:process';
 import { createInterface } from "node:readline/promises";
-import chalk from "chalk";
-import { loadSchemaInventory } from "../GithubBisSchemasHelper";
 import semver from "semver";
+import { ColumnUserConfig, table, TableUserConfig } from 'table';
+import { formatWarning, printError } from "../ConsoleHelper";
+import { loadSchemaInventory } from "../GithubBisSchemasHelper";
 import { UnifiedDb } from "../UnifiedDb";
+import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
+import { common, createEmphasize } from 'emphasize'
 
 type Choice<T> = Exclude<
-  Parameters<typeof select<T>>[0]["choices"][number],
-  string | Separator
+    Parameters<typeof select<T>>[0]["choices"][number],
+    string | Separator
 >;
 
 type SchemaInfo = {
@@ -21,15 +23,17 @@ type SchemaInfo = {
     path?: string;
 };
 
+const emphasize = createEmphasize(common);
+
 export class DbEditor {
     public static async run(ws: Workspace, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
-        if(!db.isOpen) {
+        if (!db.isOpen) {
             throw new Error(`Db failed to open: ${file.relativePath}`);
         }
 
-        while(true) {
+        while (true) {
             const operation = await select({
-                message: `${file.relativePath}${(db.isReadOnly ? ' (read-only)': '')}`,
+                message: `${file.relativePath}${(db.isReadOnly ? ' (read-only)' : '')}`,
                 choices: [
                     { name: "ECSql", value: "ECSql", disabled: !db.supportsECSql },
                     { name: "Sqlite", value: "Sqlite" },
@@ -43,7 +47,7 @@ export class DbEditor {
                 switch (operation) {
                     case "ECSql":
                         console.log(chalk.gray(" (up/down for history, Ctrl+C to exit, use semicolon to end statement)"));
-                        while (await this.runECSql(ws, db)) {}
+                        while (await this.runECSql(ws, db)) { }
                         break;
                     case "Sqlite":
                         console.log("Sqlite operation selected.");
@@ -120,17 +124,17 @@ export class DbEditor {
             rl.prompt();
         }
 
-        if( interrupted) {
+        if (interrupted) {
             return false;
         }
 
-        if(ws.config?.ecsqlHistory === undefined) {
+        if (ws.config?.ecsqlHistory === undefined) {
             ws.config!.ecsqlHistory = [];
         }
         if (!ws.config!.ecsqlHistory.includes(ecsql)) {
             ws.config!.ecsqlHistory.push(ecsql);
             if (ws.config!.ecsqlHistory.length > 10) {
-            ws.config!.ecsqlHistory = ws.config!.ecsqlHistory.slice(-10);
+                ws.config!.ecsqlHistory = ws.config!.ecsqlHistory.slice(-10);
             }
         }
         saveWorkspaceConfig(ws);
@@ -162,10 +166,8 @@ export class DbEditor {
         const output: string[][] = [];
         const headerRow = metadata.map(col => col.name);
         output.push(headerRow);
-        const typeRow = metadata.map(col => (col.extendedType === undefined ? col.typeName : col.extendedType));
-        output.push(typeRow);
 
-        const maxRowIndex = rows.length > 100 ? 99 : rows.length -1;
+        const maxRowIndex = rows.length > 100 ? 99 : rows.length - 1;
         for (let colIndex = 0; colIndex < metadata.length; colIndex++) {
             const colInfo = metadata[colIndex];
             for (let rowIndex = 0; rowIndex <= maxRowIndex; rowIndex++) {
@@ -175,24 +177,53 @@ export class DbEditor {
                     output.push(new Array(metadata.length));
                 }
 
-                if(value === null || value === undefined) {
+                if (value === null || value === undefined) {
                     value = ""; // Normalize null/undefined to empty string
                 }
 
-                if(value !== null && value !== undefined) {
+                if (value !== null && value !== undefined) {
                     let formattedValue = String(value);
-                    output[rowIndex + 2][colIndex] = formattedValue;
+                    output[rowIndex + 1][colIndex] = formattedValue;
                 }
             }
         }
 
-        this.normalizeCellWidths(output, process.stdout.columns);
-        this.printTable(output, 2);
+        /*this.normalizeCellWidths(output, process.stdout.columns);
+        this.printTable(output, 2);*/
+        const widths = this.calculateColumnWidths(output, process.stdout.columns);
+        const columns: ColumnUserConfig[] = [];
+        for (let i = 0; i < output[0].length; i++) {
+            const meta = metadata[i];
+            const width = widths[i];
+            const isNumericType = meta.typeName === "int" || meta.typeName === "double" || meta.typeName === "long";
+            const alignment = isNumericType ? "right" : "left";
+            columns.push({ alignment, width, wrapWord: !isNumericType });
+        }
 
-        if( rows.length > 100) {
+        let config: TableUserConfig = {
+            columns,
+            spanningCells: [
+                { col: 0, row: 0, colSpan: output[0].length, alignment: "center" },
+            ]
+        }
+
+        const formattedSql = emphasize.highlight('sql', ecsql).value;
+
+        // complement header row with types and colors
+        for(let i = 0; i < metadata.length; i++) {
+            const value = output[0][i];
+            const meta = metadata[i];
+            const typeName = meta.extendedType ?? meta.typeName;
+            output[0][i] = `${chalk.bold(value)}\n${chalk.italic(typeName)}`;
+        }
+        output.unshift([formattedSql, ...Array(headerRow.length - 1).fill("")]);
+
+        console.log(table(output, config));
+
+        if (rows.length > 100) {
             console.log(formatWarning("More than 100 rows returned. Only the first 100 rows are displayed."));
         }
-        
+
         return true;
     }
 
@@ -226,11 +257,12 @@ export class DbEditor {
         return JSON.stringify(value);
     }
 
-    static normalizeCellWidths(data: string[][], maxWidth: number): void {
+    static calculateColumnWidths(data: string[][], maxWidth: number): number[] {
         if (data.length === 0) {
-            return;
+            return [];
         }
-        if(maxWidth < 80) maxWidth = 80; // Ensure a minimum width for readability
+
+        if (maxWidth < 80) maxWidth = 80; // Ensure a minimum width for readability
 
         let columnWidths: number[] = [];
         const minWidthPerColumn = 8;
@@ -241,7 +273,7 @@ export class DbEditor {
             for (const row of data) {
                 for (let i = 0; i < row.length; i++) {
                     const cell = row[i];
-                    if(!cell)
+                    if (!cell)
                         continue; // Skip undefined or null cells
 
                     if (!columnWidths[i] || cell.length > columnWidths[i]) {
@@ -267,50 +299,7 @@ export class DbEditor {
                 }
             }
         }
-
-        for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
-            for (let colIndex = 0; colIndex < data[rowIndex].length; colIndex++) {
-                const value = data[rowIndex][colIndex];
-                if (value === undefined || value === null) {
-                    data[rowIndex][colIndex] = "".padEnd(columnWidths[colIndex]);
-                } else if (typeof value !== "string") {
-                    let stringValue = String(value);
-                    if(stringValue.length > columnWidths[colIndex]) {
-                        stringValue = stringValue.slice(0, columnWidths[colIndex] - 3) + "...";
-                    } else if (stringValue.length < columnWidths[colIndex]) {
-                        stringValue = stringValue.padEnd(columnWidths[colIndex]);
-                    }
-                    data[rowIndex][colIndex] = stringValue;
-                } else {
-                    if (value.length > columnWidths[colIndex]) {
-                        data[rowIndex][colIndex] = value.slice(0, columnWidths[colIndex] - 3) + "...";
-                    } else if (value.length < columnWidths[colIndex]) {
-                        data[rowIndex][colIndex] = data[rowIndex][colIndex].padEnd(columnWidths[colIndex]);
-                    }
-                }
-            }
-        }
-    }
-
-    static printTable(data: string[][], headerCount: number = 1) {
-        if (data.length === 0) {
-            console.log("(no data)");
-            return;
-        }
-
-        const horizontalLine = chalk.gray(data[0].map((headerValue) => "-".repeat(headerValue.length)).join("-+-"));
-
-        console.log();
-        for (let i = 0; i < data.length; i++) {
-            if (i === headerCount && headerCount > 0) {
-                console.log(horizontalLine);
-            }
-            const isHeader = i < headerCount;
-            console.log(data[i].map(cell => (isHeader && i === 0 ? chalk.bold(cell) : cell)).join(isHeader ? "   " : chalk.gray(" | ")));
-        }
-        if (data.length > headerCount) {
-            console.log(horizontalLine);
-        }
+        return columnWidths;
     }
 
     static async runSchemas(ws: Workspace, db: UnifiedDb): Promise<void> {
@@ -352,7 +341,7 @@ export class DbEditor {
 
         for (const [outerName, schemaGroup] of Object.entries(availableSchemas)) {
             for (const schema of schemaGroup) {
-                if(!schema.released || !schema.path)
+                if (!schema.released || !schema.path)
                     continue; // Skip unreleased schemas
                 if (schema.name !== outerName) {
                     console.log(formatWarning(`Schema name mismatch: expected ${outerName}, got ${schema.name}`));
@@ -384,11 +373,11 @@ export class DbEditor {
         const choices: Choice<SchemaInfo | string>[] = [];
         for (const schema of Object.values(schemaInfoMap)) {
             let name = schema.name;
-            if(!schema.version)
+            if (!schema.version)
                 continue; // Skip schemas that are not in the database
 
             const version = schema.version.toString();
-            if(schema.latestVersion) {
+            if (schema.latestVersion) {
                 if (semver.eq(schema.version, schema.latestVersion)) {
                     choices.push({ name: `${name} (${version} - ${chalk.green('latest')})`, value: schema, disabled: true });
                 } else if (semver.lt(schema.version, schema.latestVersion)) {
@@ -411,7 +400,7 @@ export class DbEditor {
         }
         let pageSize = 25;
         const terminalRows = process.stdout.rows;
-        if( terminalRows > 25) {
+        if (terminalRows > 25) {
             pageSize = Math.max(25, Math.floor(terminalRows * 0.5));
         }
 
@@ -422,15 +411,15 @@ export class DbEditor {
             loop: false,
         });
 
-        if(typeof selectedSchema === "string") {
-            if(selectedSchema === "__import__") {
+        if (typeof selectedSchema === "string") {
+            if (selectedSchema === "__import__") {
                 console.log("Importing a new schema is not yet implemented.");
             }
             return;
         }
 
         console.log(`Selected schema: ${selectedSchema.name}`);
-        if(selectedSchema.version) {
+        if (selectedSchema.version) {
             console.log(`Version: ${selectedSchema.version}`);
         }
     }
