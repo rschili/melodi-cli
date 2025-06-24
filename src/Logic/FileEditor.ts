@@ -114,7 +114,10 @@ export class DbEditor {
         let ecsql = "";
         rl.prompt();
         for await (const line of rl) {
-            ecsql += line;
+            if (ecsql === "")
+                ecsql = line;
+            else
+                ecsql += "\n" + line;
 
             if (line.trim().endsWith(';')) {
                 rl.close();
