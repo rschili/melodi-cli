@@ -134,8 +134,9 @@ export class DbEditor {
         if (ws.config?.ecsqlHistory === undefined) {
             ws.config!.ecsqlHistory = [];
         }
-        if (!ws.config!.ecsqlHistory.includes(ecsql)) {
-            ws.config!.ecsqlHistory.push(ecsql);
+        const ecsqlSingleLine = ecsql.replace(/\s*\n\s*/g, ' ').trim();
+        if (!ws.config!.ecsqlHistory.includes(ecsqlSingleLine)) {
+            ws.config!.ecsqlHistory.push(ecsqlSingleLine);
             if (ws.config!.ecsqlHistory.length > 10) {
                 ws.config!.ecsqlHistory = ws.config!.ecsqlHistory.slice(-10);
             }
