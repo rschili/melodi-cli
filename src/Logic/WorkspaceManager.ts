@@ -6,6 +6,7 @@ import { select, Separator } from "@inquirer/prompts";
 import yoctoSpinner from "yocto-spinner";
 import chalk from "chalk";
 import { timeSpanToString } from "../ConsoleHelper";
+import { Logger } from "../Logger";
 
 type Choice<T> = Exclude<
   Parameters<typeof select<T>>[0]["choices"][number],
@@ -62,6 +63,7 @@ export class WorkspaceManager {
 
             const createNewValue = "__createNew__";
             const refreshValue = "__refresh__";
+            const settingsValue = "__settings__";
             const exitValue = "__exit__";
             const choice = await select<string | WorkspaceFile>({
                 message: 'Select an option',
@@ -69,6 +71,7 @@ export class WorkspaceManager {
                     { name: "New...", value: createNewValue },
                     { name: "Reload", value: refreshValue },
                     ...fileChoices,
+                    { name: "Settings", value: settingsValue },
                     { name: "Exit", value: exitValue },
                 ],
                 default: (fileChoices.length > 0 ? fileChoices[0].value : createNewValue),
@@ -82,6 +85,11 @@ export class WorkspaceManager {
 
             if (choice === refreshValue) {
                 continue; // re-run the loop to refresh the workspace
+            }
+
+            if (choice === settingsValue) {
+                await this.showSettings(ws);
+                continue; // re-run the loop after showing settings
             }
 
             if (choice === createNewValue) {
@@ -114,6 +122,29 @@ export class WorkspaceManager {
 
     static getSchemaVersionString(version: SchemaVersion): string {
         return `${version.major}.${version.minor}.${version.sub1}.${version.sub2}`;
+    }
+
+    static async showSettings(ws: Workspace): Promise<void> {
+        while (true) {
+            const choice = await select<string>({
+                message: 'Select a setting to change',
+                choices: [
+                    { name: "Logging: " + Logger.getCurrentLevelString(ws.userConfig.logging), value: "logging" },
+                    { name: "(Back)", value: "exit" },
+                ],
+                pageSize: 10,
+                loop: false,
+            });
+
+            if (choice === "exit") {
+                return; // Exit settings menu
+            }
+
+            if (choice === "logging") {
+                await Logger.configure(ws);
+                continue;
+            }
+        }
     }
 
 

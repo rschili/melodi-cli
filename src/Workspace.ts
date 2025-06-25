@@ -5,9 +5,10 @@ import { z } from "zod/v4";
 import { globby } from 'globby';
 import { IModelsClient } from "@itwin/imodels-client-authoring";
 import { SQLiteDb, SqliteStatement } from "@itwin/core-backend";
-import { DbResult, OpenMode } from "@itwin/core-bentley";
-import { printError } from "./ConsoleHelper";
+import { DbResult, LogLevel, OpenMode } from "@itwin/core-bentley";
+import { printError, formatError } from "./ConsoleHelper";
 import { SemVer } from "semver";
+import { applicationVersion } from "./Diagnostics";
 
 const WorkspaceConfigSchema = z.object({
     melodiVersion: z.string(),
@@ -16,14 +17,12 @@ const WorkspaceConfigSchema = z.object({
 
 export type WorkspaceConfig = z.infer<typeof WorkspaceConfigSchema>;
 
-
-/*const BriefcaseConfigSchema = z.object({
-    type: z.enum([WorkspaceType.BRIEFCASE]),
+const UserConfigSchema = z.object({
     melodiVersion: z.string(),
-    environment: z.enum([Environment.PROD, Environment.QA, Environment.DEV]),
+    logging: z.enum(LogLevel).optional(),
 });
 
-export type BriefcaseConfigProps = z.infer<typeof BriefcaseConfigSchema>;*/
+export type UserConfig = z.infer<typeof UserConfigSchema>;
 
 export const MelodiConfigFolderName = '.melodi';
 export const CacheFolderName = '.itwinjs-cache';
@@ -35,6 +34,7 @@ export type Workspace = {
     userConfigDirPath: string;
     cacheDirPath: string;
     config?: WorkspaceConfig;
+    userConfig: UserConfig;
     files?: WorkspaceFile[];
 
     // Optional: if iModelHost::Startup has been called with a specific environment, this will be set
@@ -78,12 +78,15 @@ export async function loadWorkspace(root: string = process.cwd()): Promise<Works
     }
 
     const configPath = path.join(melodiConfigPath, ConfigFileName);
+    const userConfigPath = path.join(userConfigDirPath, ConfigFileName);
+    const userConfig = await readUserConfig(userConfigPath);
     if (!fs.existsSync(configPath)) {
         return {
             userConfigDirPath,
             workspaceRootPath,
             workspaceConfigDirPath: melodiConfigPath,
             cacheDirPath,
+            userConfig
         };
     }
 
@@ -99,6 +102,7 @@ export async function loadWorkspace(root: string = process.cwd()): Promise<Works
         workspaceConfigDirPath: melodiConfigPath,
         config,
         cacheDirPath,
+        userConfig
     };
 }
 
@@ -131,12 +135,54 @@ export async function saveWorkspaceConfig(ws: Workspace): Promise<void> {
     }
 
     const configPath = path.join(ws.workspaceConfigDirPath, ConfigFileName);
+    ws.config.melodiVersion = applicationVersion; // Ensure the version is up-to-date
     const data = JSON.stringify(ws.config, undefined, 2);
     await fs.promises.writeFile(configPath, data, 'utf-8');
 
     if (!fs.existsSync(ws.cacheDirPath)) {
         await fs.promises.mkdir(ws.cacheDirPath, { recursive: true });
     }
+}
+
+export async function readUserConfig(userConfigPath: string): Promise<UserConfig> {
+    try {
+        if (fs.existsSync(userConfigPath)) {
+            // If the user config does not exist, return the default user config
+            const data = await fs.promises.readFile(userConfigPath, 'utf-8');
+            const json = JSON.parse(data);
+            return await UserConfigSchema.parseAsync(json);
+        }
+    } catch (err: unknown) {
+        console.error(formatError("Failed to read user config. Using default config."));
+        printError(err);
+    }
+
+    return {
+        melodiVersion: applicationVersion,
+        logging: LogLevel.None,
+    };
+}
+
+export async function saveUserConfig(ws: Workspace): Promise<void> {
+    const userConfigPath = path.join(ws.userConfigDirPath, ConfigFileName);
+    // Validate the config before saving
+    if (!fs.existsSync(ws.userConfigDirPath)) {
+        await fs.promises.mkdir(ws.userConfigDirPath, { recursive: true });
+    }
+
+    if (!fs.lstatSync(ws.userConfigDirPath).isDirectory()) {
+        throw new Error(`The user config directory is not a valid directory: ${ws.userConfigDirPath}`);
+    }
+
+    try {
+        fs.accessSync(ws.userConfigDirPath, fs.constants.R_OK | fs.constants.W_OK);
+    } catch (err) {
+        throw new Error(`The user config directory is not accessible: ${ws.userConfigDirPath}. Please check permissions.`);
+    }
+
+    ws.userConfig.melodiVersion = applicationVersion; // Ensure the version is up-to-date
+    const data = JSON.stringify(ws.userConfig, undefined, 2);
+    await fs.promises.writeFile(userConfigPath, data, 'utf-8');
 }
 
 export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {

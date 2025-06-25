@@ -7,11 +7,14 @@ import { WorkspaceManager } from "./Logic/WorkspaceManager";
 import * as fs from 'fs';
 import { confirm } from "@inquirer/prompts";
 import { IModelHost } from "@itwin/core-backend";
+import { Logger } from "./Logger";
+import { LogLevel } from "@itwin/core-bentley";
 
 export class Runner {
     public async run(): Promise<void> {
         const workspace: Workspace = await loadWorkspace();
         const activeMelodiVersion = applicationVersion;
+        Logger.setLevel(workspace.userConfig.logging ?? LogLevel.None);
 
         console.log(`User settings directory: ${formatPath(workspace.userConfigDirPath)}`);
         if(workspace.config !== undefined) {
