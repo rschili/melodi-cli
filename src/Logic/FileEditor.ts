@@ -174,12 +174,16 @@ export class DbEditor {
         const output: string[][] = [];
         const headerRow = metadata.map(col => col.name);
         output.push(headerRow);
+        const jsonCells: { rowIndex: number, colIndex: number}[] = []
 
         const maxRowIndex = rows.length > 100 ? 99 : rows.length - 1;
         for (let colIndex = 0; colIndex < metadata.length; colIndex++) {
             const colInfo = metadata[colIndex];
             for (let rowIndex = 0; rowIndex <= maxRowIndex; rowIndex++) {
-                let value = await this.formatValue(rows[rowIndex][colIndex], colInfo, db, classIdCache);
+                let { value, detectedType } = await this.formatValue(rows[rowIndex][colIndex], colInfo, db, classIdCache);
+                if(detectedType === "json") {
+                    jsonCells.push({ rowIndex: rowIndex + 2, colIndex }); // +2 for header and title rows
+                }
 
                 if (colIndex === 0) {
                     output.push(new Array(metadata.length));
@@ -205,7 +209,7 @@ export class DbEditor {
             const width = widths[i];
             const isNumericType = meta.typeName === "int" || meta.typeName === "double" || meta.typeName === "long";
             const alignment = isNumericType ? "right" : "left";
-            columns.push({ alignment, width, wrapWord: !isNumericType });
+            columns.push({ alignment, /*width,*/ wrapWord: false });
         }
 
         let config: TableUserConfig = {
@@ -226,6 +230,15 @@ export class DbEditor {
         }
         output.unshift([formattedSql, ...Array(headerRow.length - 1).fill("")]);
 
+        /*if (jsonCells.length > 0) { // colorizing happens after calculateClumnWidths because the color characters should not be counted
+            for (const cell of jsonCells) {
+                const highlighted = emphasize.highlight('json', output[cell.rowIndex][cell.colIndex]);
+                if(highlighted.value) {
+                    output[cell.rowIndex][cell.colIndex] = highlighted.value;
+                }
+            }
+        }*/
+
         console.log(table(output, config));
 
         if (rows.length > 100) {
@@ -241,34 +254,49 @@ export class DbEditor {
         return true;
     }
 
-    static async formatValue(value: any, colInfo: QueryPropertyMetaData, db: UnifiedDb, classIdCache: Record<string, string>): Promise<string> {
+    static async formatValue(value: any, colInfo: QueryPropertyMetaData, db: UnifiedDb, classIdCache: Record<string, string>)
+    : Promise<{value: string, detectedType?: string}> {
         if (value === null || value === undefined) {
-            return "";
+            return {value: ""};
         }
 
         if (typeof value === "string") {
-            return value;
+            // Try to pretty-print JSON if possible
+            try {
+                if(value &&
+                (colInfo.extendedType?.toLowerCase() === "json" || colInfo.typeName.toLowerCase() === "string") &&
+                value.startsWith("{")) {
+                    const jsonValue = JSON.parse(value);
+                    if (typeof jsonValue === "object" && jsonValue) {
+                        return { value: JSON.stringify(jsonValue, null, 2), detectedType: "json" };
+                    }
+                }
+
+            } catch {
+                // Not valid JSON, just return as is
+            }
+            return { value };
         }
 
         if (typeof value === "number" || typeof value === "boolean") {
-            return String(value);
+            return { value: String(value)};
         }
 
         if (colInfo.typeName === "navigation") {
             const id = value.Id;
             const classId = value.RelECClassId;
             if (!id || !classId) {
-                return "";
+                return {value: ""};
             }
             const className = await this.getClassName(db, classId, classIdCache);
-            return `${className} ${id}`;
+            return {value: `${className} ${id}`};
         }
 
         if (Array.isArray(value)) {
-            return `[${value.map(v => this.formatValue(v, colInfo, db, classIdCache)).join(", ")}]`;
+            return {value: `[${value.map(v => this.formatValue(v, colInfo, db, classIdCache)).join(", ")}]`};
         }
 
-        return JSON.stringify(value);
+        return { value: JSON.stringify(value) };
     }
 
     static calculateColumnWidths(data: string[][], maxWidth: number): number[] {
