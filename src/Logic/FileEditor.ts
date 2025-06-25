@@ -5,7 +5,7 @@ import { stdin, stdout } from 'node:process';
 import { createInterface } from "node:readline/promises";
 import semver from "semver";
 import { ColumnUserConfig, table, TableUserConfig } from 'table';
-import { formatWarning, printError } from "../ConsoleHelper";
+import { formatWarning, printError, resetChar } from "../ConsoleHelper";
 import { loadSchemaInventory } from "../GithubBisSchemasHelper";
 import { UnifiedDb } from "../UnifiedDb";
 import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
@@ -95,13 +95,14 @@ export class DbEditor {
         queryOptions.setRowFormat(QueryRowFormat.UseECSqlPropertyIndexes);
         queryOptions.setLimit({ count: 101 }); // limiting to 101 rows for now. If we exceed 100 we print that we have more than 100 rows.
         queryOptions.setAbbreviateBlobs(true);
+        const history = ws.config?.ecsqlHistory ?? [];
 
         const rl = createInterface({
             input: stdin,
             output: stdout,
             terminal: true,
             prompt: "ECSql> ",
-            history: ws.config?.ecsqlHistory,
+            history,
         });
 
         let interrupted = false;
@@ -132,16 +133,11 @@ export class DbEditor {
             return false;
         }
 
-        if (ws.config?.ecsqlHistory === undefined) {
-            ws.config!.ecsqlHistory = [];
-        }
         const ecsqlSingleLine = ecsql.replace(/\s*\n\s*/g, ' ').trim();
-        if (!ws.config!.ecsqlHistory.includes(ecsqlSingleLine)) {
-            ws.config!.ecsqlHistory.push(ecsqlSingleLine);
-            if (ws.config!.ecsqlHistory.length > 10) {
-                ws.config!.ecsqlHistory = ws.config!.ecsqlHistory.slice(-10);
+        const newLength = history.length;
+        if (newLength > 10) {
+            ws.config!.ecsqlHistory = history.slice(10);
             }
-        }
         saveWorkspaceConfig(ws);
 
         let rows: any[] = [];
@@ -200,8 +196,6 @@ export class DbEditor {
             }
         }
 
-        /*this.normalizeCellWidths(output, process.stdout.columns);
-        this.printTable(output, 2);*/
         const widths = this.calculateColumnWidths(output, process.stdout.columns);
         const columns: ColumnUserConfig[] = [];
         for (let i = 0; i < output[0].length; i++) {
@@ -209,7 +203,7 @@ export class DbEditor {
             const width = widths[i];
             const isNumericType = meta.typeName === "int" || meta.typeName === "double" || meta.typeName === "long";
             const alignment = isNumericType ? "right" : "left";
-            columns.push({ alignment, /*width,*/ wrapWord: false });
+            columns.push({ alignment, width, wrapWord: false });
         }
 
         let config: TableUserConfig = {
@@ -230,14 +224,14 @@ export class DbEditor {
         }
         output.unshift([formattedSql, ...Array(headerRow.length - 1).fill("")]);
 
-        /*if (jsonCells.length > 0) { // colorizing happens after calculateClumnWidths because the color characters should not be counted
+        if (jsonCells.length > 0) { // colorizing happens after calculateClumnWidths because the color characters should not be counted
             for (const cell of jsonCells) {
                 const highlighted = emphasize.highlight('json', output[cell.rowIndex][cell.colIndex]);
                 if(highlighted.value) {
-                    output[cell.rowIndex][cell.colIndex] = highlighted.value;
+                    output[cell.rowIndex][cell.colIndex] = highlighted.value + resetChar;
                 }
             }
-        }*/
+        }
 
         console.log(table(output, config));
 
@@ -319,7 +313,8 @@ export class DbEditor {
                         continue; // Skip undefined or null cells
 
                     if (!columnWidths[i] || cell.length > columnWidths[i]) {
-                        columnWidths[i] = cell.length;
+                        const width = this.calculateWidth(cell);
+                        columnWidths[i] = width;
                     }
                 }
             }
@@ -342,6 +337,13 @@ export class DbEditor {
             }
         }
         return columnWidths;
+    }
+
+    static calculateWidth(cell: string): number {
+        if (cell.includes('\n')) {
+            return cell.split('\n').reduce((max, line) => Math.max(max, line.length), 0);
+        }
+        return cell.length;
     }
 
     static async runSchemas(ws: Workspace, db: UnifiedDb): Promise<void> {
