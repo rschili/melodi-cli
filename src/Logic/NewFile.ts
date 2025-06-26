@@ -6,20 +6,18 @@ import { AzureClientStorage, BlockBlobClientWrapperFactory } from "@itwin/object
 import { ClientStorage, StrategyClientStorage} from "@itwin/object-storage-core";
 import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-authoring";
 import { printError, formatError, logError } from "../ConsoleHelper";
-import { Environment, Workspace } from "../Workspace";
+import { Environment, ITwinHistoryEntry, saveUserConfig, Workspace } from "../Workspace";
 import { DbApiKind } from "./FileActions";
 import { log, select, spinner, text, isCancel } from "@clack/prompts";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
         const workspaceType = await select({
-            message: 'Which API do you want to use to create a file?',
+            message: 'Choose an option:',
             options: [
-                { label: 'Briefcase', value: DbApiKind.BriefcaseDb },
-                { label: 'ECDb', value: DbApiKind.ECDb },
-                { label: 'Standalone', value: DbApiKind.StandaloneDb },
-                { label: 'Snapshot', value: DbApiKind.SnapshotDb },
-                { label: 'SQLite', value: DbApiKind.SQLiteDb },
+                { label: 'Pull a briefcase from iModelHub', value: DbApiKind.BriefcaseDb },
+                { label: 'Initialize a new ECDb', value: DbApiKind.ECDb },
+                { label: 'Initialize a new standalone iModel', value: DbApiKind.StandaloneDb },
             ],
         });
 
@@ -29,30 +27,70 @@ export class NewFile {
 
         switch (workspaceType) {
             case DbApiKind.BriefcaseDb:
-                return this.initBriefcase();
+                return this.initBriefcase(ws);
             case DbApiKind.ECDb:
                 throw new Error("ECDb workspace initialization is not yet implemented.");
             case DbApiKind.StandaloneDb:
                 throw new Error("StandaloneDb workspace initialization is not yet implemented.");
-            case DbApiKind.SnapshotDb:
-                throw new Error("SnapshotDb workspace initialization is not yet implemented.");
-            case DbApiKind.SQLiteDb:
-                throw new Error("SQLiteDb workspace initialization is not yet implemented.");
         }
     }
 
-    public static async initBriefcase(): Promise<void> {
-        const environment = await select({
-            message: "Select an environment",
+    public static async initBriefcase(ws: Workspace): Promise<void> {
+        const history = ws.userConfig.iTwinHistory ?? [];
+        const method = await select<string | ITwinHistoryEntry>({
+            message: 'Choose the method to connect',
             options: [
-                {label: "PROD", value: Environment.PROD },
-                {label: "QA", value: Environment.QA },
-                {label: "DEV", value: Environment.DEV },
+                { label: "List available iModels by iTwin", value: "iTwin" },
+                { label: "Specify a single iModel by ID", value: "iModel" }
+                ,
+                ...(history.length > 0
+                    ? history.map((entry, idx) => ({
+                            label: `Recent: ${entry.iTwinId} on ${entry.environment}`,
+                            value: entry,
+                        }))
+                    : [])
             ],
         });
 
-        if(isCancel(environment)) {
+        // 65f5eeec-326e-4814-ac57-74977e9456a1
+        // d08c6ecb-5925-40a7-853d-b69c8d15deaf
+        // 75b98df9b64f52154a020139387d844e859a5680
+
+        if (isCancel(method)) {
             return; // User cancelled the prompt
+        }
+
+        let id: string = "";
+        let environment: Environment = Environment.PROD;
+        if( method == "iTwin" || method == "iModel") {
+            const selectedEnv = await select({
+                message: "Select an environment",
+                options: [
+                    {label: "PROD", value: Environment.PROD },
+                    {label: "QA", value: Environment.QA },
+                    {label: "DEV", value: Environment.DEV },
+                ],
+            });
+
+            if(isCancel(selectedEnv)) {
+                return; // User cancelled the prompt
+            }
+
+            environment = selectedEnv;
+            
+            const input = await text({
+                message: `Please provide the ${method} ID`,
+            });
+
+            if (isCancel(input)) {
+                return; // User cancelled the prompt
+            }
+
+            id = input.trim();
+        } else {
+            const historyEntry = method as ITwinHistoryEntry;
+            id = historyEntry.iTwinId;
+            environment = historyEntry.environment;
         }
 
         const authority = environment === Environment.PROD ? "https://ims.bentley.com/" : environment === Environment.QA ? "https://qa-ims.bentley.com/" : "https://dev-ims.bentley.com/";
@@ -95,28 +133,7 @@ export class NewFile {
             iModelsClientOptions.api = {baseUrl: "https://qa-api.bentley.com/imodels"};
         }*/
         const iModelsCLient = new IModelsClient(iModelsClientOptions);
-
-        const method = await select({
-            message: 'Choose the method to connect',
-            options: [
-                { label: "Load available iModel IDs for a provided iTwin ID", value: "iTwin" },
-                { label: "Load a single iModel by ID", value: "iModel" }
-            ],
-        });
-
-        if (isCancel(method)) {
-            return; // User cancelled the prompt
-        }
-
         let iModelId: string | undefined = undefined;
-
-        const id = await text({
-            message: `Please provide the ${method} ID`,
-        });
-
-        if (isCancel(id)) {
-            return; // User cancelled the prompt
-        }
 
         if (method === "iTwin") {
             const iModelIterator = iModelsCLient.iModels.getMinimalList({
@@ -125,6 +142,26 @@ export class NewFile {
                         iTwinId: id,
                     },
                 });
+
+            // Add the used iTwin id to history
+            const historyEntry: ITwinHistoryEntry = {
+                iTwinId: id,
+                environment: environment,
+            };
+            if (!ws.userConfig.iTwinHistory) {
+                ws.userConfig.iTwinHistory = [historyEntry];
+            } else {
+                // Check if the iTwinId already exists in history
+                const existingIndex = ws.userConfig.iTwinHistory.findIndex(entry => entry.iTwinId === id && entry.environment === environment);
+                if (existingIndex === -1) {
+                    ws.userConfig.iTwinHistory.unshift(historyEntry);
+                }
+            }
+            if(ws.userConfig.iTwinHistory.length > 10) {
+                // Limit history to the last 10 entries
+                ws.userConfig.iTwinHistory = ws.userConfig.iTwinHistory.slice(10);
+            }
+            await saveUserConfig(ws);
 
             const iModelChoices = [];
             for await (const iModel of iModelIterator) {

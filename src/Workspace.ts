@@ -10,6 +10,19 @@ import { printError, formatError } from "./ConsoleHelper";
 import { SemVer } from "semver";
 import { applicationVersion } from "./Diagnostics";
 
+export enum Environment {
+    PROD = 'PROD',
+    QA = 'QA',
+    DEV = 'DEV',
+}
+
+const ITwinHistoryEntrySchema = z.object({
+    iTwinId: z.string(),
+    environment: z.enum(Environment),
+});
+
+export type ITwinHistoryEntry = z.infer<typeof ITwinHistoryEntrySchema>;
+
 const WorkspaceConfigSchema = z.object({
     melodiVersion: z.string(),
     ecsqlHistory: z.array(z.string()).optional(),
@@ -20,6 +33,7 @@ export type WorkspaceConfig = z.infer<typeof WorkspaceConfigSchema>;
 const UserConfigSchema = z.object({
     melodiVersion: z.string(),
     logging: z.enum(LogLevel).optional(),
+    iTwinHistory: z.array(ITwinHistoryEntrySchema).optional(),
 });
 
 export type UserConfig = z.infer<typeof UserConfigSchema>;
@@ -42,11 +56,6 @@ export type Workspace = {
     IModelsClient?: IModelsClient;
 }
 
-export enum Environment {
-    PROD = 'PROD',
-    QA = 'QA',
-    DEV = 'DEV',
-}
 
 export type WorkspaceFile = {
     relativePath: string;
