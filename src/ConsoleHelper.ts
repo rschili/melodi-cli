@@ -29,6 +29,27 @@ export function logError(error: unknown): void {
     }
 }
 
+export function generateColorizerMap<T>(values: T[]): Map<T, (text: string) => string> {
+    const colorizerMap = new Map<T, (text: string) => string>();
+    const colors = [
+        chalk.redBright,
+        chalk.greenBright,
+        chalk.blueBright,
+        chalk.yellowBright,
+        chalk.cyanBright,
+        chalk.magentaBright,
+        chalk.whiteBright,
+    ];
+
+    const uniqueValues = Array.from(new Set(values));
+    uniqueValues.forEach((value, index) => {
+        const color = colors[index % colors.length];
+        colorizerMap.set(value, color);
+    });
+
+    return colorizerMap;
+}
+
 const msInSecond = 1000;
 const msInMinute = msInSecond * 60;
 const msInHour = msInMinute * 60;

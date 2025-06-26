@@ -15,70 +15,74 @@ export enum Environment {
     DEV = 'DEV',
 }
 
+/**
+ * This manages all clients that need to be initialized based on a selected environment.
+ * Makes it easier to switch between environments and ensures that the clients are properly initialized.
+ */
 export class EnvironmentManager {
-    private cacheDir: string;
-    private currentEnvironment: Environment = Environment.PROD;
-    private authClient?: NodeCliAuthorizationClient;
-    private iModelsClient?: IModelsClient;
-    private iTwinsClient?: ITwinsAccessClient;
-    private isSignedIn: boolean = false;
-    private isStartedUp: boolean = false;
+    private _cacheDir: string;
+    private _currentEnvironment: Environment = Environment.PROD;
+    private _authClient?: NodeCliAuthorizationClient;
+    private _iModelsClient?: IModelsClient;
+    private _iTwinsClient?: ITwinsAccessClient;
+    private _isSignedIn: boolean = false;
+    private _isStartedUp: boolean = false;
 
     constructor(cacheDir: string) {
-        this.cacheDir = cacheDir;
+        this._cacheDir = cacheDir;
     }
 
-    public get environment(): Environment {
-        return this.currentEnvironment;
+    public get currentEnvironment(): Environment {
+        return this._currentEnvironment;
     }
 
     public get cacheDirectory(): string {
-        return this.cacheDir;
+        return this._cacheDir;
     }
 
-    public changeEnvironment(newEnvironment: Environment, cacheDir: string): void {
-        if(newEnvironment !== this.currentEnvironment) {
-            this.shutdown();
-            this.currentEnvironment = newEnvironment;
-            this.startup();
+    public async selectEnvironment(newEnvironment: Environment): Promise<void> {
+        if(newEnvironment !== this._currentEnvironment) {
+            await this.shutdown();
+            this._currentEnvironment = newEnvironment;
+            await this.startup();
         }
     }
 
     public async startup(): Promise<void> {
-        if(this.isStartedUp) {
+        if(this._isStartedUp) {
             return;
         }
 
         // may have to set HubAccess here if we want to use it, but it needs auth client to be initialized first
         await IModelHost.startup({ 
-            cacheDir: this.cacheDir,
+            cacheDir: this._cacheDir,
         });
-        this.isStartedUp = true;
+        this._isStartedUp = true;
     }
 
     public async shutdown(): Promise<void> {
-        if(this.isStartedUp) {
-            this.authClient = undefined;
-            this.iModelsClient = undefined;
-            this.iTwinsClient = undefined;
-            this.isSignedIn = false;
-            this.isStartedUp = false;
+        if(this._isStartedUp) {
+            this._authClient = undefined;
+            this._iModelsClient = undefined;
+            this._iTwinsClient = undefined;
+            this._isSignedIn = false;
+            this._isStartedUp = false;
 
         await IModelHost.shutdown();
         }
     }
 
     public get authority(): string {
-        const authority = this.currentEnvironment === Environment.PROD
+        const authority = this._currentEnvironment === Environment.PROD
             ? "https://ims.bentley.com/"
-            : this.currentEnvironment === Environment.QA
+            : this._currentEnvironment === Environment.QA
                 ? "https://qa-ims.bentley.com/"
                 : "https://dev-ims.bentley.com/";
         return authority;
     }
 
     public get clientId(): string {
-        switch (this.currentEnvironment) {
+        switch (this._currentEnvironment) {
             case Environment.PROD:
             return "native-b517RwSFtag94aBZ5lM40QCf6";
             case Environment.QA:
@@ -86,21 +90,21 @@ export class EnvironmentManager {
             case Environment.DEV:
             return "get a dev key you lazy bum";
             default:
-            throw new Error(`Unknown environment: ${this.currentEnvironment}`);
+            throw new Error(`Unknown environment: ${this._currentEnvironment}`);
         }
     }
 
     public async getAccessToken(): Promise<{scheme: string, token: string}> {
-        if (this.authClient === undefined) {
+        if (this._authClient === undefined) {
             throw new Error("Authorization client is not initialized. Call signInIfNecessary() first.");
         }
 
-        const parts = (await this.authClient.getAccessToken()).split(" ");
+        const parts = (await this._authClient.getAccessToken()).split(" ");
         return { scheme: parts[0], token: parts[1] };
     }
-    public get auth(): NodeCliAuthorizationClient {
-        if (!this.authClient) {
-            this.authClient = new NodeCliAuthorizationClient({
+    public get authClient(): NodeCliAuthorizationClient {
+        if (!this._authClient) {
+            this._authClient = new NodeCliAuthorizationClient({
             issuerUrl: this.authority,
             clientId: this.clientId,
             redirectUri: "http://localhost:3000/signin-callback",
@@ -108,17 +112,17 @@ export class EnvironmentManager {
         });
         }
 
-        return this.authClient;
+        return this._authClient;
     }
 
     public async signInIfNecessary(): Promise<void> {
-        if (!this.isSignedIn) {
-            await this.auth.signIn();
+        if (!this._isSignedIn) {
+            await this.authClient.signIn();
         }
     }
 
-    public get iModels(): IModelsClient {
-        if (!this.iModelsClient) {
+    public get iModelsClient(): IModelsClient {
+        if (!this._iModelsClient) {
             const iModelsClientOptions: IModelsClientOptions = {
                 cloudStorage: new StrategyClientStorage([
                     {
@@ -132,19 +136,19 @@ export class EnvironmentManager {
                     ]),
             }
 
-            this.iModelsClient = new IModelsClient(iModelsClientOptions);
+            this._iModelsClient = new IModelsClient(iModelsClientOptions);
         }
-        return this.iModelsClient;
+        return this._iModelsClient;
     }
 
-    public get iTwins(): ITwinsAccessClient {
-        if (!this.iTwinsClient) {
-            this.iTwinsClient = new ITwinsAccessClient();
+    public get iTwinsClient(): ITwinsAccessClient {
+        if (!this._iTwinsClient) {
+            this._iTwinsClient = new ITwinsAccessClient();
         }
-        return this.iTwinsClient;
+        return this._iTwinsClient;
     }
 
-    public static async promptEnvironment(selected: Environment) : Promise<Environment | symbol> {
+    public async promptEnvironment() : Promise<Environment | symbol> {
         return await select({
             message: "Select an environment",
             options: [
@@ -152,6 +156,7 @@ export class EnvironmentManager {
                 {label: "QA", value: Environment.QA },
                 {label: "DEV", value: Environment.DEV },
             ],
+            initialValue: this._currentEnvironment,
         });
     }
 }

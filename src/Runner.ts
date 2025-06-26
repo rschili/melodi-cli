@@ -39,15 +39,15 @@ export class Runner {
         await Initialize.run(ws);
         }
 
-        if (!fs.existsSync(ws.environment.cacheDirectory)) {
-            await fs.promises.mkdir(ws.environment.cacheDirectory, { recursive: true });
+        if (!fs.existsSync(ws.envManager.cacheDirectory)) {
+            await fs.promises.mkdir(ws.envManager.cacheDirectory, { recursive: true });
         }
 
         try {
-            await ws.environment.startup();
+            await ws.envManager.startup();
             await WorkspaceManager.run(ws);
         } finally {
-            await ws.environment.shutdown();
+            await ws.envManager.shutdown();
         }
     }
 }
