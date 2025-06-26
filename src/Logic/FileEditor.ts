@@ -1,4 +1,3 @@
-import { select, Separator } from "@inquirer/prompts";
 import { QueryBinder, QueryOptionsBuilder, QueryPropertyMetaData, QueryRowFormat } from "@itwin/core-common";
 import chalk from "chalk";
 import { stdin, stdout } from 'node:process';
@@ -11,11 +10,7 @@ import { UnifiedDb } from "../UnifiedDb";
 import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
 import { common, createEmphasize } from 'emphasize'
 import { performance } from "node:perf_hooks";
-
-type Choice<T> = Exclude<
-    Parameters<typeof select<T>>[0]["choices"][number],
-    string | Separator
->;
+import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
 
 type SchemaInfo = {
     name: string;
@@ -35,19 +30,25 @@ export class DbEditor {
         while (true) {
             const operation = await select({
                 message: `${file.relativePath}${(db.isReadOnly ? ' (read-only)' : '')}`,
-                choices: [
-                    { name: "ECSql", value: "ECSql", disabled: !db.supportsECSql },
-                    { name: "Sqlite", value: "Sqlite" },
-                    { name: "Stats", value: "Stats" },
-                    { name: "Schemas", value: "Schemas", description: chalk.yellowBright("On ECDb level, the support for importing schemas is limited to a single schema at a time. Use iModelDb if you need more options.") },
-                    { name: "Close", value: "Close" }
+                options: [
+                ...(db.supportsECSql ? [{ label: "ECSql", value: "ECSql" }] : []),
+                { label: "Sqlite", value: "Sqlite" },
+                { label: "Stats", value: "Stats" },
+                ...(db.supportsECSql ? [{ label: "Schemas", value: "Schemas" }] : []),
+                { label: "Close", value: "Close" }
                 ],
             });
+
+            if(operation === "Close" || isCancel(operation)) {
+                return; // Exit the loop and close the editor
+            }
 
             try {
                 switch (operation) {
                     case "ECSql":
-                        console.log(chalk.gray(" (up/down for history, Ctrl+C to exit, use semicolon to end statement)"));
+                        console.log();
+                        log.message("ECSql editor. (press up/down for history, Ctrl+C to exit, use semicolon to end statement)");
+                        console.log();
                         while (await this.runECSql(ws, db)) { }
                         break;
                     case "Sqlite":
@@ -61,9 +62,6 @@ export class DbEditor {
                     case "Schemas":
                         await this.runSchemas(ws, db);
                         break;
-                    case "Close":
-                        console.log("database closed.");
-                        return;
                 }
             } catch (error: unknown) {
                 printError(error);
@@ -414,7 +412,7 @@ export class DbEditor {
             }
         }
 
-        const choices: Choice<SchemaInfo | string>[] = [];
+        const choices: Option<SchemaInfo | string>[] = [];
         for (const schema of Object.values(schemaInfoMap)) {
             let name = schema.name;
             if (!schema.version)
@@ -423,20 +421,20 @@ export class DbEditor {
             const version = schema.version.toString();
             if (schema.latestVersion) {
                 if (semver.eq(schema.version, schema.latestVersion)) {
-                    choices.push({ name: `${name} (${version} - ${chalk.green('latest')})`, value: schema, disabled: true });
+                    choices.push({ label: `${name} (${version} - ${chalk.green('latest')})`, value: schema });
                 } else if (semver.lt(schema.version, schema.latestVersion)) {
-                    choices.push({ name: `${name} (${version} - ${chalk.yellowBright(`${schema.latestVersion} available`)})`, value: schema });
+                    choices.push({ label: `${name} (${version} - ${chalk.yellowBright(`${schema.latestVersion} available`)})`, value: schema });
                 } else {
-                    choices.push({ name: `${name} (${version} - ${chalk.magenta('newer than known??')})`, value: schema });
+                    choices.push({ label: `${name} (${version} - ${chalk.magenta('newer than known??')})`, value: schema });
                 }
             } else {
-                choices.push({ name: `${name} (${version})`, value: schema, disabled: true });
+                choices.push({ label: `${name} (${version})`, value: schema });
             }
         }
         choices.sort((a, b) => {
-            return a.name!.localeCompare(b.name!);
+            return a.label!.localeCompare(b.label!);
         });
-        choices.push({ name: "Import a new schema", value: "__import__" });
+        choices.push({ label: "Import a new schema", value: "__import__" });
 
         if (choices.length === 0) {
             console.log("No schemas found in the database (that's odd).");
@@ -450,10 +448,13 @@ export class DbEditor {
 
         const selectedSchema = await select({
             message: "Select a schema to update",
-            choices: choices,
-            pageSize: pageSize,
-            loop: false,
+            options: choices,
+            maxItems: pageSize,
         });
+
+        if (isCancel(selectedSchema)) {
+            return; // User cancelled the selection
+        }
 
         if (typeof selectedSchema === "string") {
             if (selectedSchema === "__import__") {
