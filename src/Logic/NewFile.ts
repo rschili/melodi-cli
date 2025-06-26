@@ -1,30 +1,31 @@
 
-import { input, select } from "@inquirer/prompts";
 import { NodeCliAuthorizationClient } from "@itwin/node-cli-authorization";
 import { GoogleClientStorage } from "@itwin/object-storage-google/lib/client";
 import { ClientStorageWrapperFactory } from "@itwin/object-storage-google/lib/client/wrappers";
 import { AzureClientStorage, BlockBlobClientWrapperFactory } from "@itwin/object-storage-azure";
 import { ClientStorage, StrategyClientStorage} from "@itwin/object-storage-core";
 import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-authoring";
-import { LogBuffer } from "../LogBuffer";
-import { withTimeout } from "../PromiseHelper";
-import yoctoSpinner from "yocto-spinner";
-import { printError, formatError } from "../ConsoleHelper";
+import { printError, formatError, logError } from "../ConsoleHelper";
 import { Environment, Workspace } from "../Workspace";
 import { DbApiKind } from "./FileActions";
+import { log, select, spinner, text, isCancel } from "@clack/prompts";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
         const workspaceType = await select({
             message: 'Which API do you want to use to create a file?',
-            choices: [
-                { name: 'Briefcase', value: DbApiKind.BriefcaseDb },
-                { name: 'ECDb', value: DbApiKind.ECDb },
-                { name: 'Standalone', value: DbApiKind.StandaloneDb },
-                { name: 'Snapshot', value: DbApiKind.SnapshotDb },
-                { name: 'SQLite', value: DbApiKind.SQLiteDb },
+            options: [
+                { label: 'Briefcase', value: DbApiKind.BriefcaseDb },
+                { label: 'ECDb', value: DbApiKind.ECDb },
+                { label: 'Standalone', value: DbApiKind.StandaloneDb },
+                { label: 'Snapshot', value: DbApiKind.SnapshotDb },
+                { label: 'SQLite', value: DbApiKind.SQLiteDb },
             ],
         });
+
+        if(isCancel(workspaceType)) {
+            return; // User cancelled the prompt
+        }
 
         switch (workspaceType) {
             case DbApiKind.BriefcaseDb:
@@ -43,16 +44,20 @@ export class NewFile {
     public static async initBriefcase(): Promise<void> {
         const environment = await select({
             message: "Select an environment",
-            choices: [
-                {name: "PROD", value: Environment.PROD },
-                {name: "QA", value: Environment.QA },
-                {name: "DEV", value: Environment.DEV },
+            options: [
+                {label: "PROD", value: Environment.PROD },
+                {label: "QA", value: Environment.QA },
+                {label: "DEV", value: Environment.DEV },
             ],
         });
 
+        if(isCancel(environment)) {
+            return; // User cancelled the prompt
+        }
+
         const authority = environment === Environment.PROD ? "https://ims.bentley.com/" : environment === Environment.QA ? "https://qa-ims.bentley.com/" : "https://dev-ims.bentley.com/";
         if(environment !== Environment.PROD) {
-            throw new Error(`Environment ${environment} is not supported yet. Please use PROD.`);
+            throw new Error(`Environment ${String(environment)} is not supported yet. Please use PROD.`);
         }
 
         const authClient = new NodeCliAuthorizationClient({
@@ -62,22 +67,17 @@ export class NewFile {
             scope: "itwin-platform"
         });
 
-
-        // collect nested logs
-        var logger = new LogBuffer();
-
-        const spinner = yoctoSpinner({text: "Signing in (please check for a browser window)..." });
+        const s = spinner();
         try {
-            logger.start();
-            spinner.start();
-            await withTimeout(authClient.signIn(), 30);
-            spinner.success("Sign in successful.");
+            s.start("Signing in (please check for a browser window)...");
+            await authClient.signIn();
+            //await withTimeout(authClient.signIn(), 30);
+            s.stop("Sign in successful.");
         }
         catch (error: unknown) {
-            spinner.error("Sign in failed.");
-            printError(error);
-            logger.restorePrintAndClear();
-            throw error;
+            s.stop("Sign in failed.");
+            logError(error);
+            return;
         }
 
         const getTokenCallback = async () => {
@@ -98,17 +98,25 @@ export class NewFile {
 
         const method = await select({
             message: 'Choose the method to connect',
-            choices: [
-                { name: "Load available iModel IDs for a provided iTwin ID", value: "iTwin" },
-                { name: "Load a single iModel by ID", value: "iModel" }
+            options: [
+                { label: "Load available iModel IDs for a provided iTwin ID", value: "iTwin" },
+                { label: "Load a single iModel by ID", value: "iModel" }
             ],
         });
 
+        if (isCancel(method)) {
+            return; // User cancelled the prompt
+        }
+
         let iModelId: string | undefined = undefined;
 
-        const id = await input({
+        const id = await text({
             message: `Please provide the ${method} ID`,
         });
+
+        if (isCancel(id)) {
+            return; // User cancelled the prompt
+        }
 
         if (method === "iTwin") {
             const iModelIterator = iModelsCLient.iModels.getMinimalList({
@@ -121,20 +129,26 @@ export class NewFile {
             const iModelChoices = [];
             for await (const iModel of iModelIterator) {
                 iModelChoices.push({
-                    name: `${iModel.displayName} (ID: ${iModel.id})`,
+                    label: `${iModel.displayName} (ID: ${iModel.id})`,
                     value: iModel.id,
                 });
             }
 
             if (iModelChoices.length === 0) {
-                console.error(formatError("No iModels found for the provided iTwin ID."));
+                log.error("No iModels found for the provided iTwin ID.");
                 return;
             }
 
-            iModelId = await select({
+            const selectedIModelId = await select({
                 message: 'Select an iModel',
-                choices: iModelChoices,
+                options: iModelChoices,
             });
+
+            if(isCancel(selectedIModelId)) {
+                return; // User cancelled the prompt
+            }
+
+            iModelId = selectedIModelId;
         } else {
             iModelId = id;
         }

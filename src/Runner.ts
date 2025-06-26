@@ -5,10 +5,11 @@ import { Initialize } from "./Logic/Initialize";
 import { formatPath, formatWarning } from "./ConsoleHelper";
 import { WorkspaceManager } from "./Logic/WorkspaceManager";
 import * as fs from 'fs';
-import { confirm } from "@inquirer/prompts";
 import { IModelHost } from "@itwin/core-backend";
 import { Logger } from "./Logger";
 import { LogLevel } from "@itwin/core-bentley";
+import { confirm } from '@clack/prompts'
+import { isCancel } from "axios";
 
 export class Runner {
     public async run(): Promise<void> {
@@ -27,6 +28,10 @@ export class Runner {
             const response = await confirm({
                 message: `Do you want to initialize a new workspace at ${formatPath(workspace.workspaceRootPath)}?`,
             });
+
+            if(!isCancel(response)) {
+                return;
+            }
 
             if(!response)
                 return;

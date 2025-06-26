@@ -1,3 +1,4 @@
+import { log } from "@clack/prompts";
 import chalk from "chalk";
 
 export const formatPath = chalk.blueBright.underline;
@@ -14,6 +15,17 @@ export function printError(error: unknown): void {
         }*/
     } else {
         console.error(formatError(`Error: ${String(error)}`));
+    }
+}
+
+export function logError(error: unknown): void {
+    if (error instanceof Error) {
+        log.error(error.message);
+        /*if (error.stack) {
+            console.error(chalk.gray(error.stack));
+        }*/
+    } else {
+        log.error(`Error: ${String(error)}`);
     }
 }
 

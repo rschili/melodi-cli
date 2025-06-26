@@ -141,7 +141,7 @@ export class WorkspaceManager {
 
             if (choice === "logging") {
                 await Logger.configure(ws);
-                continue;
+                return; //continue; So long as there is only one option, we can return here
             }
         }
     }

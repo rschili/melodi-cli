@@ -1,4 +1,4 @@
-import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
+import { select, isCancel } from "@clack/prompts"
 import { BriefcaseDb, ECDb, ECDbOpenMode, IModelDb, SnapshotDb, SQLiteDb, StandaloneDb } from "@itwin/core-backend";
 import { ECSqlReader, QueryBinder, QueryOptions } from "@itwin/core-common";
 import { OpenMode } from "@itwin/core-bentley";

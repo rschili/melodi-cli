@@ -1,19 +1,19 @@
-import { select } from "@inquirer/prompts";
 import { saveUserConfig, Workspace } from "./Workspace";
 import { Constructor, Logger as BeLogger, LoggerLevelsConfig, LogLevel } from "@itwin/core-bentley";
 import chalk from "chalk";
 import { formatError, formatWarning } from "./ConsoleHelper";
+import { isCancel, log, select } from "@clack/prompts";
 
 export class Logger {
     public static setLevel(level: LogLevel): void {
         const errorFn = (cat: string, message: string, _: unknown) =>
-            console.error(`[${cat}] ${formatError(message)}`);
+            log.error(`[${cat} Logger] ${chalk.white(message)}`);
         const warningFn = (cat: string, message: string, _: unknown) =>
-            console.error(`[${cat}] ${formatWarning(message)}`);
+            log.warn(`[${cat} Logger] ${chalk.white(message)}`);
         const infoFn = (cat: string, message: string, _: unknown) =>
-            console.log(`[${cat}] ${chalk.greenBright(message)}`);
+            log.info(`[${cat} Logger] ${chalk.white(message)}`);
         const traceFn = (cat: string, message: string, _: unknown) =>
-            console.log(`[${cat}] ${chalk.gray(message)}`);
+            log.message(`[${cat} Logger] ${chalk.gray(message)}`);
 
         switch (level) {
             case LogLevel.None:
@@ -59,17 +59,21 @@ export class Logger {
         const selectedLevel = ws.userConfig.logging ?? LogLevel.None;
         const choice = await select<LogLevel>({
                 message: 'Logging',
-                choices: [
-                    { name: "off", value: LogLevel.None },
-                    { name: this.getCurrentLevelString(LogLevel.Error), value: LogLevel.Error },
-                    { name: this.getCurrentLevelString(LogLevel.Warning) , value: LogLevel.Warning },
-                    { name: this.getCurrentLevelString(LogLevel.Info), value: LogLevel.Info },
-                    { name: this.getCurrentLevelString(LogLevel.Trace), value: LogLevel.Trace },
+                options: [
+                    { label: "off", value: LogLevel.None },
+                    { label: this.getCurrentLevelString(LogLevel.Error), value: LogLevel.Error },
+                    { label: this.getCurrentLevelString(LogLevel.Warning) , value: LogLevel.Warning },
+                    { label: this.getCurrentLevelString(LogLevel.Info), value: LogLevel.Info },
+                    { label: this.getCurrentLevelString(LogLevel.Trace), value: LogLevel.Trace },
                 ],
-                default: selectedLevel,
-                pageSize: 5,
-                loop: false,
+                initialValue: selectedLevel,
+                maxItems: 5,
             });
+
+        if(isCancel(choice)) {
+            return;
+        }
+
         ws.userConfig.logging = choice;
         this.setLevel(choice);
         await saveUserConfig(ws);
