@@ -9,12 +9,8 @@ import { DbResult, LogLevel, OpenMode } from "@itwin/core-bentley";
 import { printError, formatError } from "./ConsoleHelper";
 import { SemVer } from "semver";
 import { applicationVersion } from "./Diagnostics";
-
-export enum Environment {
-    PROD = 'PROD',
-    QA = 'QA',
-    DEV = 'DEV',
-}
+import { NodeCliAuthorizationClient } from "@itwin/node-cli-authorization";
+import { Environment, EnvironmentManager } from "./EnvironmentManager";
 
 const ITwinHistoryEntrySchema = z.object({
     iTwinId: z.string(),
@@ -46,14 +42,11 @@ export type Workspace = {
     workspaceRootPath: string;
     workspaceConfigDirPath: string;
     userConfigDirPath: string;
-    cacheDirPath: string;
     config?: WorkspaceConfig;
     userConfig: UserConfig;
     files?: WorkspaceFile[];
 
-    // Optional: if iModelHost::Startup has been called with a specific environment, this will be set
-    iModelClientEnvironment?: Environment;
-    IModelsClient?: IModelsClient;
+    environment: EnvironmentManager;
 }
 
 
@@ -89,12 +82,13 @@ export async function loadWorkspace(root: string = process.cwd()): Promise<Works
     const configPath = path.join(melodiConfigPath, ConfigFileName);
     const userConfigPath = path.join(userConfigDirPath, ConfigFileName);
     const userConfig = await readUserConfig(userConfigPath);
+    const environment = new EnvironmentManager(cacheDirPath);
     if (!fs.existsSync(configPath)) {
         return {
             userConfigDirPath,
             workspaceRootPath,
             workspaceConfigDirPath: melodiConfigPath,
-            cacheDirPath,
+            environment,
             userConfig
         };
     }
@@ -110,7 +104,7 @@ export async function loadWorkspace(root: string = process.cwd()): Promise<Works
         workspaceRootPath,
         workspaceConfigDirPath: melodiConfigPath,
         config,
-        cacheDirPath,
+        environment,
         userConfig
     };
 }
@@ -147,10 +141,6 @@ export async function saveWorkspaceConfig(ws: Workspace): Promise<void> {
     ws.config.melodiVersion = applicationVersion; // Ensure the version is up-to-date
     const data = JSON.stringify(ws.config, undefined, 2);
     await fs.promises.writeFile(configPath, data, 'utf-8');
-
-    if (!fs.existsSync(ws.cacheDirPath)) {
-        await fs.promises.mkdir(ws.cacheDirPath, { recursive: true });
-    }
 }
 
 export async function readUserConfig(userConfigPath: string): Promise<UserConfig> {

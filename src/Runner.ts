@@ -13,20 +13,20 @@ import { isCancel } from "axios";
 
 export class Runner {
     public async run(): Promise<void> {
-        const workspace: Workspace = await loadWorkspace();
+        const ws: Workspace = await loadWorkspace();
         const activeMelodiVersion = applicationVersion;
-        Logger.setLevel(workspace.userConfig.logging ?? LogLevel.None);
+        Logger.setLevel(ws.userConfig.logging ?? LogLevel.None);
 
-        console.log(`User settings directory: ${formatPath(workspace.userConfigDirPath)}`);
-        if(workspace.config !== undefined) {
-            console.log(`Detected workspace at: ${formatPath(workspace.workspaceRootPath)}`);
-            if(workspace.config.melodiVersion !== activeMelodiVersion) {
-                console.log(formatWarning(`The workspace was saved using a different version of melodi (${workspace.config.melodiVersion}). Running version (${activeMelodiVersion}).`));
+        console.log(`User settings directory: ${formatPath(ws.userConfigDirPath)}`);
+        if(ws.config !== undefined) {
+            console.log(`Detected workspace at: ${formatPath(ws.workspaceRootPath)}`);
+            if(ws.config.melodiVersion !== activeMelodiVersion) {
+                console.log(formatWarning(`The workspace was saved using a different version of melodi (${ws.config.melodiVersion}). Running version (${activeMelodiVersion}).`));
             }
         } else {
             console.log(`No workspace configuration found.`);
             const response = await confirm({
-                message: `Do you want to initialize a new workspace at ${formatPath(workspace.workspaceRootPath)}?`,
+                message: `Do you want to initialize a new workspace at ${formatPath(ws.workspaceRootPath)}?`,
             });
 
             if(!isCancel(response)) {
@@ -36,22 +36,18 @@ export class Runner {
             if(!response)
                 return;
 
-        await Initialize.run(workspace);
+        await Initialize.run(ws);
         }
 
-        if (!fs.existsSync(workspace.cacheDirPath)) {
-            await fs.promises.mkdir(workspace.cacheDirPath, { recursive: true });
+        if (!fs.existsSync(ws.environment.cacheDirectory)) {
+            await fs.promises.mkdir(ws.environment.cacheDirectory, { recursive: true });
         }
-
-        // Initialize the IModelHost here so it's ready. If we connect to a briefcase we will have to re-initialize it with hubAccess available.
-        await IModelHost.startup({
-            cacheDir: workspace.cacheDirPath,
-        });
 
         try {
-            await WorkspaceManager.run(workspace);
+            await ws.environment.startup();
+            await WorkspaceManager.run(ws);
         } finally {
-            await IModelHost.shutdown();
+            await ws.environment.shutdown();
         }
     }
 }
