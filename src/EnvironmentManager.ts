@@ -8,6 +8,9 @@ import { AzureClientStorage, BlockBlobClientWrapperFactory } from "@itwin/object
 import { StrategyClientStorage } from "@itwin/object-storage-core";
 import { GoogleClientStorage } from "@itwin/object-storage-google/lib/client";
 import { ClientStorageWrapperFactory } from "@itwin/object-storage-google/lib/client/wrappers";
+import { AccessTokenAdapter } from "@itwin/imodels-access-common";
+import { Authorization } from "@itwin/imodels-client-management";
+
 
 export enum Environment {
     PROD = 'PROD',
@@ -101,6 +104,14 @@ export class EnvironmentManager {
 
         const parts = (await this._authClient.getAccessToken()).split(" ");
         return { scheme: parts[0], token: parts[1] };
+    }
+
+    public async getAuthorization(): Promise<Authorization> {
+        if (this._authClient === undefined) {
+            throw new Error("Authorization client is not initialized. Call signInIfNecessary() first.");
+        }
+
+        return AccessTokenAdapter.toAuthorization(await this._authClient!.getAccessToken());
     }
     public get authClient(): NodeCliAuthorizationClient {
         if (!this._authClient) {

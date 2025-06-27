@@ -11,6 +11,8 @@ import { EnvironmentManager } from "../EnvironmentManager";
 import { ITwin, ITwinSubClass } from "@itwin/itwins-client";
 import chalk from "chalk";
 import { generateColorizerMap } from "../ConsoleHelper";
+import { Guid } from "@itwin/core-bentley";
+import { MinimalIModel } from "@itwin/imodels-client-management";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
@@ -87,146 +89,86 @@ export class NewFile {
                 if(colorizer) {
                     colorizedSubClass = colorizer(subClass);
                 }
-            }
+            } iTwin.type
             return {
             label: `${chalk.bold(iTwin.displayName)} (${iTwin.id}) ${colorizedSubClass}`,
             value: iTwin
             }});
 
-        const selectedITwin = await select<ITwin>({
+        const thingToPull = await select<ITwin | "iModel" | "iTwin">({
             message: 'Select an iTwin',
-            options: iTwinChoices,
+            options: [
+                { label: "Pull by iModel ID", value: "iModel" },
+                { label: "Pull by iTwin ID", value: "iTwin" },
+                ...iTwinChoices
+            ],
+
             maxItems: 20,
         });
 
+        if(isCancel(thingToPull)) {
+            return; // User cancelled the prompt
+        }
 
-
-
-        /*if(environment === Environment.DEV) {
-            iModelsClientOptions.api = {baseUrl: "https://dev-api.bentley.com/imodels"};
-        } else if (environment === Environment.QA) {
-            iModelsClientOptions.api = {baseUrl: "https://qa-api.bentley.com/imodels"};
-        }*/
-        /*const iModelsCLient = new IModelsClient(iModelsClientOptions);
+        let iTwinOrIModelId: string | undefined = undefined;
         let iModelId: string | undefined = undefined;
-
-        if (method === "iTwin") {
-            const iModelIterator = iModelsCLient.iModels.getMinimalList({
-                    authorization: getTokenCallback,
-                    urlParams: {
-                        iTwinId: id,
-                    },
-                });
-
-            // Add the used iTwin id to history
-            const historyEntry: ITwinHistoryEntry = {
-                iTwinId: id,
-                environment: environment,
-            };
-            if (!ws.userConfig.iTwinHistory) {
-                ws.userConfig.iTwinHistory = [historyEntry];
-            } else {
-                // Check if the iTwinId already exists in history
-                const existingIndex = ws.userConfig.iTwinHistory.findIndex(entry => entry.iTwinId === id && entry.environment === environment);
-                if (existingIndex === -1) {
-                    ws.userConfig.iTwinHistory.unshift(historyEntry);
-                }
+        if (thingToPull === "iModel" || thingToPull === "iTwin") {
+            // in case of iTwin or iModel we need to ask for the ID
+            const unverifiedId = await text({ message: "Please provide the ID:"});
+            if(isCancel(unverifiedId)) {
+                return; // User cancelled the prompt
             }
-            if(ws.userConfig.iTwinHistory.length > 10) {
-                // Limit history to the last 10 entries
-                ws.userConfig.iTwinHistory = ws.userConfig.iTwinHistory.slice(10);
-            }
-            await saveUserConfig(ws);
 
-            const iModelChoices = [];
+            if(!Guid.isV4Guid(unverifiedId.trim())) {
+                log.error("The provided ID does not appear to be a valid GUID.");
+                return;
+            }
+
+            iTwinOrIModelId = unverifiedId.trim();
+        } else {
+            // in case of iTwin we can use the selected iTwin ID
+            iTwinOrIModelId = thingToPull.id;
+        }
+
+        if( thingToPull === "iModel") {
+            iModelId = iTwinOrIModelId;
+        } else {
+            // If the user selected iTwin or provided an ITWin ID, so we list the imodels for that
+            const client = envManager.iModelsClient;
+            const iModelIterator = await client.iModels.getMinimalList({
+                authorization: async () => envManager.getAuthorization(),
+                urlParams: {
+                    iTwinId: iTwinOrIModelId!,
+                },
+            });
+
+            const iModelChoices: Option<MinimalIModel>[] = [];
             for await (const iModel of iModelIterator) {
                 iModelChoices.push({
-                    label: `${iModel.displayName} (ID: ${iModel.id})`,
-                    value: iModel.id,
+                    label: `${chalk.bold(iModel.displayName)} (${iModel.id})`,
+                    value: iModel,
                 });
             }
-
             if (iModelChoices.length === 0) {
                 log.error("No iModels found for the provided iTwin ID.");
                 return;
             }
 
-            const selectedIModelId = await select({
-                message: 'Select an iModel',
+            const selectedIModel = await select({
+                message: "Select an iModel",
                 options: iModelChoices,
+                maxItems: 20,
             });
 
-            if(isCancel(selectedIModelId)) {
+            if(isCancel(selectedIModel)) {
                 return; // User cancelled the prompt
             }
 
-            iModelId = selectedIModelId;
-        } else {
-            iModelId = id;
+            iModelId = selectedIModel.id;
         }
 
+/*
         // get the imodel*/
 
     }
-
-    /*
-    private static async promptIModelId(ws: Workspace): Promise<{iModelId: string, environment: Environment} | undefined> {
-        const history = ws.userConfig.iTwinHistory ?? [];
-        const method = await select<string | ITwinHistoryEntry>({
-            message: 'Choose the method to connect',
-            options: [
-                { label: "List available iModels by iTwin", value: "iTwin" },
-                { label: "Specify a single iModel by ID", value: "iModel" }
-                ,
-                ...(history.length > 0
-                    ? history.map((entry, idx) => ({
-                            label: `Recent: ${entry.iTwinId} on ${entry.environment}`,
-                            value: entry,
-                        }))
-                    : [])
-            ],
-        });
-
-        // 65f5eeec-326e-4814-ac57-74977e9456a1
-        // d08c6ecb-5925-40a7-853d-b69c8d15deaf
-        // 75b98df9b64f52154a020139387d844e859a5680
-
-        if (isCancel(method)) {
-            return; // User cancelled the prompt
-        }
-
-        let id: string = "";
-        let environment: Environment = Environment.PROD;
-        if( method == "iTwin" || method == "iModel") {
-            const selectedEnv = await select({
-                message: "Select an environment",
-                options: [
-                    {label: "PROD", value: Environment.PROD },
-                    {label: "QA", value: Environment.QA },
-                    {label: "DEV", value: Environment.DEV },
-                ],
-            });
-
-            if(isCancel(selectedEnv)) {
-                return; // User cancelled the prompt
-            }
-
-            environment = selectedEnv;
-            
-            const input = await text({
-                message: `Please provide the ${method} ID`,
-            });
-
-            if (isCancel(input)) {
-                return; // User cancelled the prompt
-            }
-
-            id = input.trim();
-        } else {
-            const historyEntry = method as ITwinHistoryEntry;
-            id = historyEntry.iTwinId;
-            environment = historyEntry.environment;
-        }
-    }*/
-
 }
