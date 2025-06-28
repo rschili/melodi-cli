@@ -196,9 +196,6 @@ export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
     });
 
     const workspaceFiles: WorkspaceFile[] = files.map(file => {
-        const ext = path.extname(file).toLowerCase();
-        const baseName = path.basename(file);
-        const dirName = path.join(ws.workspaceRootPath, path.dirname(file));
         const absolutePath = path.join(ws.workspaceRootPath, file);
 
         const stats = fs.statSync(absolutePath);
@@ -212,7 +209,12 @@ export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
 
     await readFileProps(ws, workspaceFiles);
     ws.files = workspaceFiles;
+}
 
+// Folder to hold context information for a file. for file /home/user/workspace/file.bim the folder would be /home/user/workspace/.file.bim/
+export function getFileContextFolderPath(root: string, relativeFilePath: string): string {
+    const absolutePath = path.join(root, `.${relativeFilePath}`);
+    return absolutePath;
 }
 
 const schemaVersionSchema = z.object({
