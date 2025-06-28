@@ -1,7 +1,6 @@
 import path from "path";
 import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace";
-import { isCancel, text } from "@clack/prompts";
-import Progress from "ts-progress";
+import { isCancel, spinner, text } from "@clack/prompts";
 import fs from "node:fs/promises";
 import * as fsSync from 'fs';
 
@@ -41,26 +40,30 @@ export class Backup {
     }
 
     private static async copyFile(sourcePath: string, targetPath: string): Promise<void> {
-        let progress: Progress.Progress | undefined;
+        const loader = spinner();
         try {
-            progress = Progress.create({
-                total: 100, updateFrequency: 150,
-                pattern: 'Progress: {current}/{total} | Remaining: {remaining} | Elapsed: {elapsed} ', textColor: 'blue'
-            });
-        } finally {
-            progress?.done();
+            loader.start(`Copying file from ${sourcePath} to ${targetPath}`);
+            await fs.mkdir(path.dirname(targetPath), { recursive: true });
+            await fs.copyFile(sourcePath, targetPath);
+            loader.stop(`Copy successful`);
+        } catch (error: unknown) {
+            loader.stop(`Copying failed`);
+            throw error;
         }
     }
 
     private static async copyDirectoryRecursive(sourceDir: string, targetDir: string): Promise<void> {
-        let progress: Progress.Progress | undefined;
+        const loader = spinner();
         try {
-            progress = Progress.create({
-                total: 100, updateFrequency: 150,
-                pattern: 'Progress: {current}/{total} | Remaining: {remaining} | Elapsed: {elapsed} ', textColor: 'blue'
-            });
-        } finally {
-            progress?.done();
+            loader.start(`Copying context directory from ${sourceDir} to ${targetDir}`);
+
+            await fs.cp(sourceDir, targetDir, {
+                recursive: true});
+
+            loader.stop(`Context directory copy successful`);
+        } catch (error: unknown) {
+            loader.stop(`Copying failed`);
+            throw error;
         }
     }
 }
