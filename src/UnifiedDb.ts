@@ -118,6 +118,11 @@ export async function openStandaloneDb(path: string): Promise<UnifiedDb | symbol
     return new UnifiedDb(db);
 }
 
+export function createStandaloneDb(path: string, rootSubject: string): UnifiedDb {
+    const db = StandaloneDb.createEmpty(path, { rootSubject: { name: rootSubject } });
+    return new UnifiedDb(db);
+}
+
 async function promptECDbOpenMode(): Promise<ECDbOpenMode | symbol> {
     return await select({
         message: 'Select the open mode for the file',

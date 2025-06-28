@@ -13,6 +13,11 @@ import chalk from "chalk";
 import { generateColorizerMap } from "../ConsoleHelper";
 import { Guid } from "@itwin/core-bentley";
 import { MinimalIModel } from "@itwin/imodels-client-management";
+import path from "node:path";
+import { existsSync } from "node:fs";
+import { createECDb, createStandaloneDb } from "../UnifiedDb";
+import { DbEditor } from "./DbEditor";
+import fs from "node:fs/promises";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
@@ -33,10 +38,62 @@ export class NewFile {
             case DbApiKind.BriefcaseDb:
                 return this.pullBriefcase(ws);
             case DbApiKind.ECDb:
-                throw new Error("ECDb workspace initialization is not yet implemented.");
+                return this.initializeECDb(ws);
             case DbApiKind.StandaloneDb:
-                throw new Error("StandaloneDb workspace initialization is not yet implemented.");
+                return this.initializeStandaloneDb(ws);
         }
+    }
+
+    public static async initializeECDb(ws: Workspace): Promise<void> {
+        const fileName = await text({
+            message: "Enter the name for the new ECDb file (without extension):",
+        });
+        if(isCancel(fileName)) {
+            return; // User cancelled the prompt
+        }
+        const filePath = path.join(ws.workspaceRootPath, fileName.trim() + ".ecdb");
+        const dirPath = path.dirname(filePath);
+        if (!existsSync(dirPath)) {
+            // Ensure the directory exists
+            await fs.mkdir(dirPath, { recursive: true });
+        }
+        if (existsSync(filePath)) {
+            log.error(`File "${filePath}" already exists. Please choose a different name.`);
+            return this.initializeECDb(ws);
+        }
+
+        const db = createECDb(filePath);
+        await DbEditor.run(ws, { relativePath: fileName.trim() + ".ecdb", lastTouched: new Date() }, db);
+    }
+
+    public static async initializeStandaloneDb(ws: Workspace): Promise<void> {
+        const fileName = await text({
+            message: "Enter the name for the new standalone iModel file (without extension):",
+        });
+        if(isCancel(fileName)) {
+            return; // User cancelled the prompt
+        }
+        const fileNameWithExt = fileName.trim() + ".bim";
+        const filePath = path.join(ws.workspaceRootPath, fileNameWithExt);
+        const dirPath = path.dirname(filePath);
+        if (!existsSync(dirPath)) {
+            // Ensure the directory exists
+            await fs.mkdir(dirPath, { recursive: true });
+        }
+        if (existsSync(filePath)) {
+            log.error(`File "${filePath}" already exists. Please choose a different name.`);
+            return this.initializeStandaloneDb(ws);
+        }
+
+        const rootSubject = await text({
+            message: "Enter the root subject name for the new standalone iModel:",
+            initialValue: fileName.trim(),
+        });
+        if(isCancel(rootSubject)) {
+            return; // User cancelled the prompt
+        }
+        const db = createStandaloneDb(filePath, rootSubject.trim());
+        await DbEditor.run(ws, { relativePath: fileNameWithExt, lastTouched: new Date() }, db);
     }
 
     public static async pullBriefcase(ws: Workspace): Promise<void> {

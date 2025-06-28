@@ -1,5 +1,5 @@
 import { Workspace, WorkspaceFile } from "../Workspace";
-import { DbEditor } from "./FileEditor";
+import { DbEditor } from "./DbEditor";
 import { Backup } from "./Backup";
 import { openECDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb";
 import path from "path";
