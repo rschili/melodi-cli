@@ -28,6 +28,7 @@ const UserConfigSchema = z.object({
 
 export type UserConfig = z.infer<typeof UserConfigSchema>;
 
+export const MelodiConfigFolderName = '.melodi';
 export const UserConfigFileName = 'config.json';
 
 export async function readUserConfig(): Promise<UserConfig> {
@@ -52,7 +53,7 @@ export async function readUserConfig(): Promise<UserConfig> {
 }
 
 export function getUserConfigDir(): string {
-    return path.join(os.homedir(), UserConfigFileName)
+    return path.join(os.homedir(), MelodiConfigFolderName)
 }
 
 export async function saveUserConfig(cfg: UserConfig): Promise<void> {
