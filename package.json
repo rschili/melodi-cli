@@ -56,9 +56,9 @@
     "emphasize": "^7.0.0",
     "globby": "^14.1.0",
     "gradient-string": "^3.0.0",
+    "module-alias": "^2.2.3",
     "semver": "^7.7.2",
     "table": "^6.9.0",
-    "ts-progress": "^0.1.9",
     "zod": "^3.25.67"
   }
 }

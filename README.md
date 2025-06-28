@@ -34,3 +34,13 @@ make build
 make run
 ```
 
+Next TODO:
+- Pull and merge Changesets
+- Named Versions
+- Sqlite queries
+- Schema Management / Schema Import
+- Troubleshooter / integrity checker
+- Sync existing Briefcase with online iModels
+- Insert/Update/Delete
+- Transactions
+- Snapshots

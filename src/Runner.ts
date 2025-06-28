@@ -10,14 +10,13 @@ import { Logger } from "./Logger";
 import { LogLevel } from "@itwin/core-bentley";
 import { confirm } from '@clack/prompts'
 import { isCancel } from "axios";
+import { UserConfig } from "./Workspace.UserConfig";
 
 export class Runner {
-    public async run(): Promise<void> {
-        const ws: Workspace = await loadWorkspace();
+    public async run(cfg: UserConfig): Promise<void> {
+        const ws: Workspace = await loadWorkspace(cfg);
         const activeMelodiVersion = applicationVersion;
         Logger.setLevel(ws.userConfig.logging ?? LogLevel.None);
-
-        console.log(`User settings directory: ${formatPath(ws.userConfigDirPath)}`);
         if(ws.config !== undefined) {
             console.log(`Detected workspace at: ${formatPath(ws.workspaceRootPath)}`);
             if(ws.config.melodiVersion !== activeMelodiVersion) {

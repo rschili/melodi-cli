@@ -4,7 +4,7 @@ import { ClientStorageWrapperFactory } from "@itwin/object-storage-google/lib/cl
 import { AzureClientStorage, BlockBlobClientWrapperFactory } from "@itwin/object-storage-azure";
 import { ClientStorage, StrategyClientStorage} from "@itwin/object-storage-core";
 import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-authoring";
-import { saveUserConfig, Workspace } from "../Workspace";
+import { Workspace } from "../Workspace";
 import { DbApiKind } from "./FileActions";
 import { log, select, spinner, text, isCancel, tasks, Option } from "@clack/prompts";
 import { EnvironmentManager } from "../EnvironmentManager";

@@ -18,6 +18,24 @@
             ],
             "cwd": "${workspaceFolder}/workspace/",
             "outputCapture": "std",
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Run setup",
+            "console": "externalTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/dist/index.js",
+            "args": [
+                "setup"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/**/*.js"
+            ],
+            "cwd": "${workspaceFolder}/workspace/",
+            "outputCapture": "std",
         }
     ]
 }

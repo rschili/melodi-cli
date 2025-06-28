@@ -1,8 +1,8 @@
-import { saveUserConfig, Workspace } from "./Workspace";
+import { Workspace } from "./Workspace";
 import { Constructor, Logger as BeLogger, LoggerLevelsConfig, LogLevel } from "@itwin/core-bentley";
 import chalk from "chalk";
-import { formatError, formatWarning } from "./ConsoleHelper";
 import { isCancel, log, select } from "@clack/prompts";
+import { saveUserConfig } from "./Workspace.UserConfig";
 
 export class Logger {
     public static setLevel(level: LogLevel): void {
@@ -76,7 +76,7 @@ export class Logger {
 
         ws.userConfig.logging = choice;
         this.setLevel(choice);
-        await saveUserConfig(ws);
+        await saveUserConfig(ws.userConfig);
 
     }
 }

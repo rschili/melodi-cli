@@ -11,6 +11,7 @@ import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
 import { common, createEmphasize } from 'emphasize'
 import { performance } from "node:perf_hooks";
 import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
+import { getUserConfigDir } from "../Workspace.UserConfig";
 
 type SchemaInfo = {
     name: string;
@@ -362,8 +363,7 @@ export class DbEditor {
         );
         const schemasInDb = await reader.toArray();
 
-        const availableSchemas = await loadSchemaInventory(ws.userConfigDirPath);
-
+        const availableSchemas = await loadSchemaInventory(getUserConfigDir());
 
         const schemaInfoMap: Record<string, SchemaInfo> = {};
         for (const row of schemasInDb) {
