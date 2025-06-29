@@ -4,14 +4,14 @@ import { stdin, stdout } from 'node:process';
 import { createInterface } from "node:readline/promises";
 import semver from "semver";
 import { ColumnUserConfig, table, TableUserConfig } from 'table';
-import { formatWarning, printError, resetChar } from "../ConsoleHelper";
-import { loadSchemaInventory } from "../GithubBisSchemasHelper";
-import { UnifiedDb } from "../UnifiedDb";
-import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
+import { formatWarning, printError, resetChar } from "../ConsoleHelper.js";
+import { loadSchemaInventory } from "../GithubBisSchemasHelper.js";
+import { UnifiedDb } from "../UnifiedDb.js";
+import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace.js";
 import { common, createEmphasize } from 'emphasize'
 import { performance } from "node:perf_hooks";
 import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
-import { getUserConfigDir } from "../Workspace.UserConfig";
+import { getUserConfigDir } from "../Workspace.UserConfig.js";
 
 type SchemaInfo = {
     name: string;

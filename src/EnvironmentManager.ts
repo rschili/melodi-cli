@@ -6,8 +6,8 @@ import { ITwinsAccessClient } from "@itwin/itwins-client";
 import { NodeCliAuthorizationClient } from "@itwin/node-cli-authorization";
 import { AzureClientStorage, BlockBlobClientWrapperFactory } from "@itwin/object-storage-azure";
 import { StrategyClientStorage } from "@itwin/object-storage-core";
-import { GoogleClientStorage } from "@itwin/object-storage-google/lib/client";
-import { ClientStorageWrapperFactory } from "@itwin/object-storage-google/lib/client/wrappers";
+import { GoogleClientStorage } from "@itwin/object-storage-google/lib/client/index.js";
+import { ClientStorageWrapperFactory } from "@itwin/object-storage-google/lib/client/wrappers/index.js";
 import { AccessTokenAdapter } from "@itwin/imodels-access-common";
 import { Authorization } from "@itwin/imodels-client-management";
 

@@ -12,9 +12,10 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/dist/index.js",
+            "program": "${workspaceFolder}/dist/index.mjs",
             "outFiles": [
-                "${workspaceFolder}/**/*.js"
+                "${workspaceFolder}/**/*.js",
+                "${workspaceFolder}/**/*.mjs"
             ],
             "cwd": "${workspaceFolder}/workspace/",
             "outputCapture": "std",
@@ -27,12 +28,14 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "${workspaceFolder}/dist/index.js",
+            "program": "${workspaceFolder}/dist/index.mjs",
             "args": [
                 "setup"
             ],
             "outFiles": [
-                "${workspaceFolder}/**/*.js"
+                "${workspaceFolder}/**/*.js",
+                "${workspaceFolder}/**/*.mjs"
+                
             ],
             "cwd": "${workspaceFolder}/workspace/",
             "outputCapture": "std",

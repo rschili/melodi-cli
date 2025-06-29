@@ -1,6 +1,6 @@
-import { saveWorkspaceConfig, Workspace } from "../Workspace";
-import { applicationVersion } from "../Diagnostics";
-import { WorkspaceManager } from "./WorkspaceManager";
+import { saveWorkspaceConfig, Workspace } from "../Workspace.js";
+import { applicationVersion } from "../Diagnostics.js";
+import { WorkspaceManager } from "./WorkspaceManager.js";
 
 export class Initialize {
     public static async run(ws: Workspace): Promise<void> {

@@ -1,8 +1,8 @@
-import { Workspace } from "./Workspace";
-import { Constructor, Logger as BeLogger, LoggerLevelsConfig, LogLevel } from "@itwin/core-bentley";
+import { Workspace } from "./Workspace.js";
+import { Logger as BeLogger, LogLevel } from "@itwin/core-bentley";
 import chalk from "chalk";
 import { isCancel, log, select } from "@clack/prompts";
-import { saveUserConfig } from "./Workspace.UserConfig";
+import { saveUserConfig } from "./Workspace.UserConfig.js";
 
 export class Logger {
     public static setLevel(level: LogLevel): void {

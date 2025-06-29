@@ -3,13 +3,14 @@
   "version": "1.0.0",
   "description": "A gentle tune that makes iModels sing and sound.",
   "main": "dist/index.js",
+  "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "node esbuild.config.mjs",
     "test": "vitest",
-    "start": "node dist/index.js"
+    "start": "node dist/index.mjs"
   },
   "bin": {
-    "melodi": "dist/index.js"
+    "melodi": "dist/index.mjs"
   },
   "files": [
     "dist",
@@ -36,6 +37,8 @@
   "homepage": "https://github.com/rschili/melodi-cli#readme",
   "devDependencies": {
     "@types/node": "^24.0.4",
+    "esbuild": "^0.25.5",
+    "esbuild-node-externals": "^1.18.0",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   },

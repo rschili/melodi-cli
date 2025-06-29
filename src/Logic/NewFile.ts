@@ -1,22 +1,15 @@
-import { NodeCliAuthorizationClient } from "@itwin/node-cli-authorization";
-import { GoogleClientStorage } from "@itwin/object-storage-google/lib/client";
-import { ClientStorageWrapperFactory } from "@itwin/object-storage-google/lib/client/wrappers";
-import { AzureClientStorage, BlockBlobClientWrapperFactory } from "@itwin/object-storage-azure";
-import { ClientStorage, StrategyClientStorage} from "@itwin/object-storage-core";
-import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-authoring";
-import { Workspace } from "../Workspace";
-import { DbApiKind } from "./FileActions";
-import { log, select, spinner, text, isCancel, tasks, Option } from "@clack/prompts";
-import { EnvironmentManager } from "../EnvironmentManager";
+import { Workspace } from "../Workspace.js";
+import { DbApiKind } from "./FileActions.js";
+import { log, select, text, isCancel, tasks, Option } from "@clack/prompts";
 import { ITwin, ITwinSubClass } from "@itwin/itwins-client";
 import chalk from "chalk";
-import { generateColorizerMap } from "../ConsoleHelper";
+import { generateColorizerMap } from "../ConsoleHelper.js";
 import { Guid } from "@itwin/core-bentley";
 import { MinimalIModel } from "@itwin/imodels-client-management";
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { createECDb, createStandaloneDb } from "../UnifiedDb";
-import { DbEditor } from "./DbEditor";
+import { createECDb, createStandaloneDb } from "../UnifiedDb.js";
+import { DbEditor } from "./DbEditor.js";
 import fs from "node:fs/promises";
 
 export class NewFile {
@@ -223,7 +216,6 @@ export class NewFile {
 
             iModelId = selectedIModel.id;
         }
-
 /*
         // get the imodel*/
 

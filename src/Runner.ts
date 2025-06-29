@@ -1,16 +1,15 @@
 
-import { loadWorkspace, Workspace } from "./Workspace";
-import { applicationVersion } from "./Diagnostics";
-import { Initialize } from "./Logic/Initialize";
-import { formatPath, formatWarning } from "./ConsoleHelper";
-import { WorkspaceManager } from "./Logic/WorkspaceManager";
+import { loadWorkspace, Workspace } from "./Workspace.js";
+import { applicationVersion } from "./Diagnostics.js";
+import { Initialize } from "./Logic/Initialize.js";
+import { formatPath, formatWarning } from "./ConsoleHelper.js";
+import { WorkspaceManager } from "./Logic/WorkspaceManager.js";
 import * as fs from 'fs';
-import { IModelHost } from "@itwin/core-backend";
-import { Logger } from "./Logger";
+import { Logger } from "./Logger.js";
 import { LogLevel } from "@itwin/core-bentley";
 import { confirm } from '@clack/prompts'
 import { isCancel } from "axios";
-import { UserConfig } from "./Workspace.UserConfig";
+import { UserConfig } from "./Workspace.UserConfig.js";
 
 export class Runner {
     public async run(cfg: UserConfig): Promise<void> {

@@ -2,10 +2,12 @@ import * as fs from 'fs';
 import path from "path";
 import os from "os";
 import { z } from "zod/v4";
-import { printError, formatError } from "./ConsoleHelper";
-import { applicationVersion } from "./Diagnostics";
+import { printError, formatError } from "./ConsoleHelper.js";
+import { applicationVersion } from "./Diagnostics.js";
 import chalk from "chalk";
 import { isCancel, text } from "@clack/prompts";
+import Module from 'module';
+import { pathToFileURL } from 'node:url';
 
 export enum LogLevel { // copied so it's independent of @itwin/core-bentley
     /** Tracing and debugging - low level */
@@ -23,7 +25,6 @@ export enum LogLevel { // copied so it's independent of @itwin/core-bentley
 const UserConfigSchema = z.object({
     melodiVersion: z.string(),
     logging: z.enum(LogLevel).optional(),
-    iTwinJsDir: z.string().optional(),
 });
 
 export type UserConfig = z.infer<typeof UserConfigSchema>;
@@ -77,34 +78,4 @@ export async function saveUserConfig(cfg: UserConfig): Promise<void> {
     cfg.melodiVersion = applicationVersion; // Ensure the version is up-to-date
     const data = JSON.stringify(cfg, undefined, 2);
     await fs.promises.writeFile(userConfigPath, data, 'utf-8');
-}
-
-export async function setup(cfg: UserConfig): Promise<void> {
-    if(cfg.iTwinJsDir !== undefined) {
-        console.log(chalk.yellowBright(`Melodi is currently configured to use iTwin.js from: ${cfg.iTwinJsDir}`));
-        if (!fs.existsSync(cfg.iTwinJsDir)) {
-            console.log(chalk.redBright(`The specified iTwin.js path does not exist`));
-        }
-    }
-
-    const iTwinJsDir = await text({
-        message: "Enter the path to your local iTwin.js repository root from which to use the packages (leave empty to use the installed node module):",
-        initialValue: cfg.iTwinJsDir ?? "",
-    });
-    if(isCancel(iTwinJsDir)) {
-        return; // User cancelled the prompt
-    }
-    if (iTwinJsDir.trim() === "") {
-        cfg.iTwinJsDir = undefined; // Use the installed node module
-        saveUserConfig(cfg);
-        return;
-    } else {
-        const trimmedPath = iTwinJsDir.trim();
-        if (!fs.existsSync(trimmedPath)) {
-            console.log(chalk.redBright(`The specified iTwin.js path does not exist: ${trimmedPath}. Aborting.`));
-            return;
-        }
-        cfg.iTwinJsDir = trimmedPath;
-        await saveUserConfig(cfg);
-    }
 }

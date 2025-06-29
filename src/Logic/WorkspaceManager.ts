@@ -1,10 +1,9 @@
-import { detectWorkspaceFiles, SchemaVersion, Workspace, WorkspaceFile } from "../Workspace";
-import { withTimeout } from "../PromiseHelper";
-import { NewFile } from "./NewFile";
-import { FileActions } from "./FileActions";
+import { detectWorkspaceFiles, SchemaVersion, Workspace, WorkspaceFile } from "../Workspace.js";
+import { NewFile } from "./NewFile.js";
+import { FileActions } from "./FileActions.js";
 import chalk from "chalk";
-import { timeSpanToString } from "../ConsoleHelper";
-import { Logger } from "../Logger";
+import { timeSpanToString } from "../ConsoleHelper.js";
+import { Logger } from "../Logger.js";
 import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
 
 export class WorkspaceManager {
@@ -25,7 +24,7 @@ export class WorkspaceManager {
         const loader = spinner();
         try {
             loader.start("Detecting files...");
-            await withTimeout(detectWorkspaceFiles(ws), 15);
+            await detectWorkspaceFiles(ws);
             loader.stop("Workspace contents loaded successfully.");
         }
         catch (error: unknown) {

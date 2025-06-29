@@ -5,11 +5,11 @@ import { z } from "zod/v4";
 import { globby } from 'globby';
 import { SQLiteDb, SqliteStatement } from "@itwin/core-backend";
 import { DbResult, OpenMode } from "@itwin/core-bentley";
-import { printError } from "./ConsoleHelper";
+import { printError } from "./ConsoleHelper.js";
 import { SemVer } from "semver";
-import { applicationVersion } from "./Diagnostics";
-import { EnvironmentManager } from "./EnvironmentManager";
-import { UserConfig } from "./Workspace.UserConfig";
+import { applicationVersion } from "./Diagnostics.js";
+import { EnvironmentManager } from "./EnvironmentManager.js";
+import { UserConfig } from "./Workspace.UserConfig.js";
 
 const WorkspaceConfigSchema = z.object({
     melodiVersion: z.string(),

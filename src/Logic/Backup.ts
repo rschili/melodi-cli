@@ -1,5 +1,5 @@
 import path from "path";
-import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace";
+import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace.js";
 import { isCancel, spinner, text } from "@clack/prompts";
 import fs from "node:fs/promises";
 import * as fsSync from 'fs';

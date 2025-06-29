@@ -2,7 +2,6 @@ import z from "zod/v4";
 import fs from 'fs/promises';
 import axios, { AxiosRequestConfig } from 'axios';
 import path from "path";
-import { ca } from "zod/dist/types/v4/locales";
 
 export const GithubBisSchemasRootUrl = "https://raw.githubusercontent.com/iTwin/bis-schemas/refs/heads/master/";
 export const SchemaInventoryPath = "SchemaInventory.json";
