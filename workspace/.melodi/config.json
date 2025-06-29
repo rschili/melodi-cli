@@ -1,6 +1,8 @@
 {
   "melodiVersion": "1.0.0",
   "ecsqlHistory": [
+    "select $ from bis.Element;",
+    "select Name from meta.ECSchemaDef;",
     "select * from bis.element limit 4;",
     "select *\nfrom\nbis.Element;"
   ]

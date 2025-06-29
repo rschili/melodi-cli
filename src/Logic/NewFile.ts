@@ -1,25 +1,28 @@
 import { Workspace } from "../Workspace.js";
 import { DbApiKind } from "./FileActions.js";
-import { log, select, text, isCancel, tasks, Option } from "@clack/prompts";
+import { log, select, text, isCancel, tasks, Option, spinner } from "@clack/prompts";
 import { ITwin, ITwinSubClass } from "@itwin/itwins-client";
 import chalk from "chalk";
-import { generateColorizerMap } from "../ConsoleHelper.js";
+import { generateColorizerMap, logError } from "../ConsoleHelper.js";
 import { Guid } from "@itwin/core-bentley";
 import { MinimalIModel } from "@itwin/imodels-client-management";
-import path from "node:path";
 import { existsSync } from "node:fs";
-import { createECDb, createStandaloneDb } from "../UnifiedDb.js";
+import { createECDb, createStandaloneDb, openStandaloneDb } from "../UnifiedDb.js";
 import { DbEditor } from "./DbEditor.js";
 import fs from "node:fs/promises";
+import { IModelConfig, saveIModelConfig } from "../IModelConfig.js";
+import { applicationVersion } from "../Diagnostics.js";
+import { CheckpointManager, ProgressStatus } from "@itwin/core-backend";
+import path from "path";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
         const workspaceType = await select({
             message: 'Choose an option:',
             options: [
-                { label: 'Pull a briefcase from iModelHub', value: DbApiKind.BriefcaseDb },
-                { label: 'Initialize a new ECDb', value: DbApiKind.ECDb },
-                { label: 'Initialize a new standalone iModel', value: DbApiKind.StandaloneDb },
+                { label: 'Download an iModel from iModelHub', value: "__download__" },
+                { label: 'Initialize a new ECDb', value: "__ecdb__" },
+                { label: 'Initialize a new standalone iModel', value: "__standalone__" },
             ],
         });
 
@@ -28,11 +31,11 @@ export class NewFile {
         }
 
         switch (workspaceType) {
-            case DbApiKind.BriefcaseDb:
-                return this.pullBriefcase(ws);
-            case DbApiKind.ECDb:
+            case "__download__":
+                return this.downloadFromHub(ws);
+            case "__ecdb__":
                 return this.initializeECDb(ws);
-            case DbApiKind.StandaloneDb:
+            case "__standalone__":
                 return this.initializeStandaloneDb(ws);
         }
     }
@@ -89,7 +92,7 @@ export class NewFile {
         await DbEditor.run(ws, { relativePath: fileNameWithExt, lastTouched: new Date() }, db);
     }
 
-    public static async pullBriefcase(ws: Workspace): Promise<void> {
+    public static async downloadFromHub(ws: Workspace): Promise<void> {
         const envManager = ws.envManager;
         const environment = await envManager.promptEnvironment();
         if(isCancel(environment)) {
@@ -214,7 +217,61 @@ export class NewFile {
                 return; // User cancelled the prompt
             }
 
+            const authCallback = () => envManager.getAuthorization();
             iModelId = selectedIModel.id;
+            const imodel = await envManager.iModelsClient.iModels.getSingle({
+                authorization: authCallback,
+                iModelId
+            });
+
+            const config: IModelConfig = {
+                melodiVersion: applicationVersion,
+                iModelId: imodel.id,
+                iTwinId: imodel.iTwinId,
+                environment: environment,
+                displayName: imodel.displayName ?? imodel.name ?? imodel.id,
+            }
+
+            const relativePath = imodel.displayName + ".bim";
+            const absolutePath = path.join(ws.workspaceRootPath, relativePath);
+            const loader = spinner();
+            try {
+                loader.start("Downloading seed file...");
+                await CheckpointManager.downloadCheckpoint({
+                    localFile: absolutePath,
+                    checkpoint: {
+                        iTwinId: imodel.iTwinId,
+                        iModelId,
+                        changeset: { id: "" },
+                    },
+                    onProgress: (loaded: number, total: number) => {
+                        if(loaded !== 0 && total > 0) {
+                            loader.message(`Downloading seed file... ${(loaded / total * 100).toFixed(2)}%`);
+                        }
+                        return ProgressStatus.Continue;
+                    }
+                });
+                await saveIModelConfig(ws, relativePath, config);
+                loader.stop("Seed file downloaded successfully.");
+                /*loader.start("Loading list of changesets...");
+                for await (const changeset of envManager.iModelsClient.changesets.getRepresentationList({ authorization: authCallback, iModelId })) {
+                    changeset.
+                    StatusLine.update(`adding or updating briefcase id:${cachedBriefcase.briefcaseId} owner:${cachedBriefcase.owner?.displayName ?? "unknown"}`);
+                    this.setBriefcase(cachedBriefcase);
+                }*/
+
+            }
+            catch (error: unknown) {
+                loader.stop("Failed to download seed file.");
+                logError(error);
+                return;
+            }
+
+            const db = await openStandaloneDb(absolutePath);
+            if(isCancel(db)) {
+                return; // User cancelled the prompt
+            }
+            DbEditor.run(ws, { relativePath, lastTouched: new Date() }, db);
         }
 /*
         // get the imodel*/

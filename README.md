@@ -35,12 +35,22 @@ make run
 ```
 
 Next TODO:
-- Pull and merge Changesets
-- Named Versions
-- Sqlite queries
-- Schema Management / Schema Import
-- Troubleshooter / integrity checker
-- Sync existing Briefcase with online iModels
-- Insert/Update/Delete
-- Transactions
-- Snapshots
+
+- [x] Create new empty DB
+- [x] Query ECDb
+- [x] Unified Db type that wraps specialities of each Db [e.g. Sqlite, ECDb, Briefcase, Standalone]
+- [x] Pretty print query results
+- [x] ESM2020 module
+- [x] Show available iTwins and iModels
+- [x] Download iModel seeds from Hub
+- [ ] Download named versions from Hub
+- [ ] Pull and merge Changesets
+- [ ] Named Versions
+- [ ] Sqlite queries
+- [ ] Schema Management / Schema Import
+- [ ] Troubleshooter / integrity checker
+- [ ] Sync existing Briefcase with online iModels
+- [ ] Insert/Update/Delete
+- [ ] Transactions
+- [ ] Snapshots
+- [ ] Test and document how to use this with a local itwinjs-core/backend or imodeljs-native build

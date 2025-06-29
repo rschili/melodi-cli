@@ -47,6 +47,7 @@
     "@itwin/core-backend": "^5.0.1",
     "@itwin/core-common": "^5.0.1",
     "@itwin/ecschema-metadata": "^5.0.1",
+    "@itwin/imodels-access-backend": "^6.0.1",
     "@itwin/imodels-access-common": "^6.0.1",
     "@itwin/imodels-client-authoring": "^6.0.0",
     "@itwin/itwins-client": "^1.6.1",

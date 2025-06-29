@@ -4,7 +4,7 @@ import { stdin, stdout } from 'node:process';
 import { createInterface } from "node:readline/promises";
 import semver from "semver";
 import { ColumnUserConfig, table, TableUserConfig } from 'table';
-import { formatWarning, printError, resetChar } from "../ConsoleHelper.js";
+import { formatWarning, logError, printError, resetChar } from "../ConsoleHelper.js";
 import { loadSchemaInventory } from "../GithubBisSchemasHelper.js";
 import { UnifiedDb } from "../UnifiedDb.js";
 import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace.js";
@@ -65,7 +65,7 @@ export class DbEditor {
                         break;
                 }
             } catch (error: unknown) {
-                printError(error);
+                logError(error);
             }
         }
     }

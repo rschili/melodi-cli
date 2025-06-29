@@ -6,7 +6,7 @@ ide:
 
 build:
 	npm run build
-	chmod +x dist/index.js
+	chmod +x dist/index.mjs
 
 test:
 	npm run test

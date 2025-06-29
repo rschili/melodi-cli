@@ -10,6 +10,7 @@ import { GoogleClientStorage } from "@itwin/object-storage-google/lib/client/ind
 import { ClientStorageWrapperFactory } from "@itwin/object-storage-google/lib/client/wrappers/index.js";
 import { AccessTokenAdapter } from "@itwin/imodels-access-common";
 import { Authorization } from "@itwin/imodels-client-management";
+import { BackendIModelsAccess } from "@itwin/imodels-access-backend";
 
 
 export enum Environment {
@@ -56,9 +57,11 @@ export class EnvironmentManager {
             return;
         }
 
-        // may have to set HubAccess here if we want to use it, but it needs auth client to be initialized first
+        const hubAccess = new BackendIModelsAccess(this.iModelsClient);
         await IModelHost.startup({ 
             cacheDir: this._cacheDir,
+            hubAccess: hubAccess,
+            authorizationClient: this.authClient,
         });
         this._isStartedUp = true;
     }
