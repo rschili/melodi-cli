@@ -1,11 +1,11 @@
 import { Workspace } from "../Workspace.js";
 import { DbApiKind } from "./FileActions.js";
-import { log, select, text, isCancel, tasks, Option, spinner } from "@clack/prompts";
+import { log, select, text, isCancel, tasks, Option, spinner, confirm } from "@clack/prompts";
 import { ITwin, ITwinSubClass } from "@itwin/itwins-client";
 import chalk from "chalk";
 import { generateColorizerMap, logError } from "../ConsoleHelper.js";
 import { Guid } from "@itwin/core-bentley";
-import { MinimalIModel } from "@itwin/imodels-client-management";
+import { MinimalIModel, MinimalNamedVersion } from "@itwin/imodels-client-management";
 import { existsSync } from "node:fs";
 import { createECDb, createStandaloneDb, openStandaloneDb } from "../UnifiedDb.js";
 import { DbEditor } from "./DbEditor.js";
@@ -14,6 +14,7 @@ import { IModelConfig, saveIModelConfig } from "../IModelConfig.js";
 import { applicationVersion } from "../Diagnostics.js";
 import { CheckpointManager, ProgressStatus } from "@itwin/core-backend";
 import path from "path";
+import { ChangesetIdWithIndex } from "@itwin/core-common";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
@@ -232,27 +233,86 @@ export class NewFile {
                 displayName: imodel.displayName ?? imodel.name ?? imodel.id,
             }
 
-            const relativePath = imodel.displayName + ".bim";
-            const absolutePath = path.join(ws.workspaceRootPath, relativePath);
+            const namedVersionsIterator = envManager.iModelsClient.namedVersions.getMinimalList({
+                authorization: authCallback,
+                iModelId
+            });
+            const namedVersionChoices: Option<MinimalNamedVersion>[] = [];
+            for await (const nv of namedVersionsIterator) {
+                namedVersionChoices.push({
+                    label: `${chalk.bold(nv.displayName)} (Changeset Index: ${nv.changesetIndex}, Changeset ID: ${nv.changesetId})`,
+                    value: nv,
+                });
+            }
+
+            let selectedVersion: MinimalNamedVersion | "__seed__" | symbol = "__seed__";
+            if(namedVersionChoices.length === 0) {
+                log.info("There are no named versions for the selected iModel, so downloading seed.");
+            } else {
+                selectedVersion = await select<MinimalNamedVersion | "__seed__">({
+                    message: "Select which version of the iModel to download",
+                    options: [
+                        { label: "Seed iModel", value: "__seed__" },
+                        ...namedVersionChoices,
+                    ],
+                    maxItems: 20,
+                });
+                if(isCancel(selectedVersion)) {
+                    return; // User cancelled the prompt
+                }
+            }
+
+            const selectedNamedVersion = selectedVersion === "__seed__" ? undefined : (selectedVersion as MinimalNamedVersion);
+
+            const checkpointId: ChangesetIdWithIndex = 
+                selectedNamedVersion === undefined || selectedNamedVersion.changesetId === null
+                    ? { id: "" }
+                    : { id: selectedNamedVersion.changesetId, index: selectedNamedVersion.changesetIndex };
+
+            const name = (selectedNamedVersion === undefined ? imodel.displayName : (selectedNamedVersion.displayName ?? imodel.displayName));
+
+            
+            let selectedName: string | symbol;
+            let relativePath: string;
+            let absolutePath: string;
+            while (true) {
+                selectedName = await text({
+                    message: "Enter a name for the downloaded iModel file (without extension):",
+                    initialValue: name,
+                });
+
+                if (isCancel(selectedName)) {
+                    return; // User cancelled the prompt
+                }
+
+                relativePath = selectedName.trim() + ".bim";
+                absolutePath = path.join(ws.workspaceRootPath, relativePath);
+
+                if (existsSync(absolutePath)) {
+                    log.error(`File "${absolutePath}" already exists. Please choose a different name.`);
+                    continue;
+                }
+                break;
+            }
             const loader = spinner();
             try {
-                loader.start("Downloading seed file...");
+                loader.start("Downloading iModel file...");
                 await CheckpointManager.downloadCheckpoint({
                     localFile: absolutePath,
                     checkpoint: {
                         iTwinId: imodel.iTwinId,
                         iModelId,
-                        changeset: { id: "" },
+                        changeset: checkpointId,
                     },
                     onProgress: (loaded: number, total: number) => {
                         if(loaded !== 0 && total > 0) {
-                            loader.message(`Downloading seed file... ${(loaded / total * 100).toFixed(2)}%`);
+                            loader.message(`Downloading iModel file... ${(loaded / total * 100).toFixed(2)}%`);
                         }
                         return ProgressStatus.Continue;
                     }
                 });
                 await saveIModelConfig(ws, relativePath, config);
-                loader.stop("Seed file downloaded successfully.");
+                loader.stop("Downloaded successful.");
                 /*loader.start("Loading list of changesets...");
                 for await (const changeset of envManager.iModelsClient.changesets.getRepresentationList({ authorization: authCallback, iModelId })) {
                     changeset.
@@ -262,9 +322,34 @@ export class NewFile {
 
             }
             catch (error: unknown) {
-                loader.stop("Failed to download seed file.");
+                loader.stop("Failed to download iModel file.");
                 logError(error);
                 return;
+            }
+
+            log.message("Checking for available changesets...");
+            const changesets = await envManager.iModelsClient.changesets.getMinimalList({
+                authorization: authCallback,
+                iModelId
+            });
+            const changesetsArray = [];
+            for await (const cs of changesets) {
+                changesetsArray.push(cs);
+            }
+            if(changesetsArray.length > 0) {
+                const downloadChangesets = await confirm({
+                    message: `Downloaded iModel has ${changesetsArray.length} changesets. Do you want to download them? (If you choose not to, you can still get them later)`,
+                    initialValue: true,
+                });
+                if(isCancel(downloadChangesets)) {
+                    return; // User cancelled the prompt
+                }
+                if(downloadChangesets) {
+
+                }
+
+            } else {
+                log.info("Downloaded iModel has no changesets available.");
             }
 
             const db = await openStandaloneDb(absolutePath);
