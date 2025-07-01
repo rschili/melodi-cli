@@ -1,7 +1,7 @@
 import { Workspace, WorkspaceFile } from "../Workspace.js";
 import { DbEditor } from "./DbEditor.js";
 import { Backup } from "./Backup.js";
-import { openECDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb.js";
+import { openBriefcaseDb, openECDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb.js";
 import path from "path";
 import { select, isCancel } from "@clack/prompts"
 
@@ -53,6 +53,7 @@ export class FileActions {
     private static openDb(kind: DbApiKind, absolutePath: string): Promise<UnifiedDb | symbol> {
         switch (kind) {
             case DbApiKind.BriefcaseDb:
+                return openBriefcaseDb(absolutePath);
             case DbApiKind.StandaloneDb:
                 return openStandaloneDb(absolutePath);
             case DbApiKind.SnapshotDb:

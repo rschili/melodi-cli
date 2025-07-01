@@ -64,6 +64,16 @@ export class UnifiedDb implements Disposable {
         throw new Error("ECSql is not supported by this DB type.");
     }
 
+
+    public async dumpSchemas(dir: string) : Promise<void> {
+        if (this.db instanceof IModelDb) {
+            await this.db.exportSchemas(dir);
+            return;
+        }
+        throw new Error("Dumping schemas is not implemented by this DB type (native addon wants at least DgnDb for this). Try StandaloneDb.");
+    }
+
+
     [Symbol.dispose](): void {
         // All IModelDb instances are not disposable.
         if (this.db instanceof IModelDb) { // Handles BriefcaseDb, SnapshotDb, StandaloneDb
@@ -120,6 +130,11 @@ export async function openStandaloneDb(path: string): Promise<UnifiedDb | symbol
 
 export function createStandaloneDb(path: string, rootSubject: string): UnifiedDb {
     const db = StandaloneDb.createEmpty(path, { rootSubject: { name: rootSubject } });
+    return new UnifiedDb(db);
+}
+
+export async function openBriefcaseDb(path: string): Promise<UnifiedDb | symbol> {
+    const db = await BriefcaseDb.open({ fileName: path });
     return new UnifiedDb(db);
 }
 

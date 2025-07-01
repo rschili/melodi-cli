@@ -7,11 +7,13 @@ import { ColumnUserConfig, table, TableUserConfig } from 'table';
 import { formatWarning, logError, printError, resetChar } from "../ConsoleHelper.js";
 import { loadSchemaInventory } from "../GithubBisSchemasHelper.js";
 import { UnifiedDb } from "../UnifiedDb.js";
-import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace.js";
+import { getFileContextFolderPath, saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace.js";
 import { common, createEmphasize } from 'emphasize'
 import { performance } from "node:perf_hooks";
 import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
 import { getUserConfigDir } from "../Workspace.UserConfig.js";
+import path from "node:path";
+import { mkdirSync } from "node:fs";
 
 type SchemaInfo = {
     name: string;
@@ -61,7 +63,7 @@ export class DbEditor {
                         // Add Stats operation logic here
                         break;
                     case "Schemas":
-                        await this.runSchemas(ws, db);
+                        await this.runSchemas(ws, file, db);
                         break;
                 }
             } catch (error: unknown) {
@@ -345,7 +347,7 @@ export class DbEditor {
         return cell.length;
     }
 
-    static async runSchemas(ws: Workspace, db: UnifiedDb): Promise<void> {
+    static async runSchemas(ws: Workspace, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
         //Workflow:
         // 1. Get schemas in DB, and available schemas
         // 2. Build a list of choices + info about available updates
@@ -412,60 +414,58 @@ export class DbEditor {
             }
         }
 
-        const choices: Option<SchemaInfo | string>[] = [];
+        const schemaTable: string[][] = [
+            ["Name", "Current Version", "Latest published Version"],
+        ];
         for (const schema of Object.values(schemaInfoMap)) {
-            let name = schema.name;
-            if (!schema.version)
+            if(!schema.version) {
                 continue; // Skip schemas that are not in the database
-
-            const version = schema.version.toString();
-            if (schema.latestVersion) {
-                if (semver.eq(schema.version, schema.latestVersion)) {
-                    choices.push({ label: `${name} (${version} - ${chalk.green('latest')})`, value: schema });
-                } else if (semver.lt(schema.version, schema.latestVersion)) {
-                    choices.push({ label: `${name} (${version} - ${chalk.yellowBright(`${schema.latestVersion} available`)})`, value: schema });
-                } else {
-                    choices.push({ label: `${name} (${version} - ${chalk.magenta('newer than known??')})`, value: schema });
-                }
-            } else {
-                choices.push({ label: `${name} (${version})`, value: schema });
             }
-        }
-        choices.sort((a, b) => {
-            return a.label!.localeCompare(b.label!);
-        });
-        choices.push({ label: "Import a new schema", value: "__import__" });
 
-        if (choices.length === 0) {
-            console.log("No schemas found in the database (that's odd).");
-            return;
-        }
-        let pageSize = 25;
-        const terminalRows = process.stdout.rows;
-        if (terminalRows > 25) {
-            pageSize = Math.max(25, Math.floor(terminalRows * 0.5));
-        }
+            let latestVersion = "";
+            if(schema.latestVersion) {
+                if (semver.eq(schema.version, schema.latestVersion)) {
+                    latestVersion = chalk.green(schema.latestVersion.toString() + "\n(github)");
+                } else if (semver.lt(schema.version, schema.latestVersion)) {
+                    latestVersion = chalk.yellowBright(schema.latestVersion.toString() + "\n(github)");
+                } else {
+                    latestVersion = chalk.magenta(schema.latestVersion.toString() + "\n(github)");
+                }
+            }
 
-        const selectedSchema = await select({
+            schemaTable.push([
+                schema.name,
+                schema.version.toString(),
+                latestVersion,
+            ]);
+        }
+        console.log(table(schemaTable));
+        
+        // Use base36 encoding to shorten the current date string for directory naming
+        // 
+
+        const schemaOption = await select({
             message: "Select a schema to update",
-            options: choices,
-            maxItems: pageSize,
+            options: [
+                { label: "Import a schema", value: "__import__" },
+                { label: "Import multiple schemas", value: "__import_multiple__" },
+                { label: "Dump all schemas as XML" , value: "__dump__" },
+                { label: "(Back)", value: "__back__" },
+            ],
         });
 
-        if (isCancel(selectedSchema)) {
+        if (isCancel(schemaOption) || schemaOption === "__back__") {
             return; // User cancelled the selection
         }
 
-        if (typeof selectedSchema === "string") {
-            if (selectedSchema === "__import__") {
-                console.log("Importing a new schema is not yet implemented.");
-            }
-            return;
-        }
+        if (schemaOption === "__dump__") {
+            const currentTime = Math.floor((Date.now() - new Date("2020-01-01").getTime()) / 1000).toString(36);
+            const dumpPath = path.join(getFileContextFolderPath(ws.workspaceRootPath, file.relativePath), `schemas_dump_${currentTime}`) ;
+            log.info(`Dumping all schemas to: ${dumpPath}`);
+            mkdirSync(dumpPath, { recursive: true });
 
-        console.log(`Selected schema: ${selectedSchema.name}`);
-        if (selectedSchema.version) {
-            console.log(`Version: ${selectedSchema.version}`);
+            await db.dumpSchemas(dumpPath);
+            return;
         }
     }
 }
