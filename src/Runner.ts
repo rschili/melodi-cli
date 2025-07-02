@@ -1,9 +1,8 @@
 
-import { loadWorkspace, Workspace } from "./Workspace.js";
+import { loadWorkspace, saveWorkspaceConfig, Workspace } from "./Workspace.js";
 import { applicationVersion } from "./Diagnostics.js";
-import { Initialize } from "./Logic/Initialize.js";
 import { formatPath, formatWarning } from "./ConsoleHelper.js";
-import { WorkspaceManager } from "./Logic/WorkspaceManager.js";
+import { FileSelector } from "./Logic/FileSelector.js";
 import * as fs from 'fs';
 import { Logger } from "./Logger.js";
 import { LogLevel } from "@itwin/core-bentley";
@@ -34,7 +33,7 @@ export class Runner {
             if(!response)
                 return;
 
-        await Initialize.run(ws);
+        await Runner.initWorkspace(ws);
         }
 
         if (!fs.existsSync(ws.envManager.cacheDirectory)) {
@@ -43,9 +42,19 @@ export class Runner {
 
         try {
             await ws.envManager.startup();
-            await WorkspaceManager.run(ws);
+            await FileSelector.run(ws);
         } finally {
             await ws.envManager.shutdown();
         }
+    }
+
+    private static async initWorkspace(ws: Workspace): Promise<void> {
+        if (ws.config !== undefined) {
+            throw new Error("The 'config' property must be undefined during initialization.");
+        }
+
+        ws.config = { melodiVersion: applicationVersion};
+        await saveWorkspaceConfig(ws);
+        await FileSelector.run(ws);
     }
 }

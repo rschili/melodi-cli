@@ -6,7 +6,7 @@ import { timeSpanToString } from "../ConsoleHelper.js";
 import { Logger } from "../Logger.js";
 import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
 
-export class WorkspaceManager {
+export class FileSelector {
 
     public static async run(ws: Workspace): Promise<void> {
         if(ws.config === undefined) {
@@ -40,7 +40,7 @@ export class WorkspaceManager {
         if(ws.files !== undefined) {
             fileChoices.push(...ws.files!.map(file => ({
                 label: file.relativePath, 
-                hint: WorkspaceManager.getFileDescription(file),
+                hint: FileSelector.getFileDescription(file),
                 value: file,})));
 
             fileChoices.sort((a, b) => {
@@ -103,7 +103,7 @@ export class WorkspaceManager {
     static getFileDescription(file: WorkspaceFile): string {
         const descriptions: string[] = [];
         if(file.ecDbVersion !== undefined) {
-            descriptions.push(`ECDb ${chalk.white(WorkspaceManager.getSchemaVersionString(file.ecDbVersion))}`);
+            descriptions.push(`ECDb ${chalk.white(FileSelector.getSchemaVersionString(file.ecDbVersion))}`);
         }
 
         if(file.bisCoreVersion !== undefined) {

@@ -64,6 +64,9 @@ export class UnifiedDb implements Disposable {
         throw new Error("ECSql is not supported by this DB type.");
     }
 
+    public get supportsDumpSchemas(): boolean {
+        return this.db instanceof IModelDb;
+    }
 
     public async dumpSchemas(dir: string) : Promise<void> {
         if (this.db instanceof IModelDb) {

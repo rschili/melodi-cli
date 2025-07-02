@@ -243,7 +243,4 @@ async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<voi
             }
         }
     }
-    
-
-    
 }
