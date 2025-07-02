@@ -6,8 +6,7 @@ import { FileSelector } from "./Logic/FileSelector.js";
 import * as fs from 'fs';
 import { Logger } from "./Logger.js";
 import { LogLevel } from "@itwin/core-bentley";
-import { confirm } from '@clack/prompts'
-import { isCancel } from "axios";
+import { confirm, isCancel } from '@clack/prompts'
 import { UserConfig } from "./Workspace.UserConfig.js";
 
 export class Runner {
