@@ -1,4 +1,4 @@
-import { Workspace } from "../Workspace.js";
+import { getFileContextFolderPath, Workspace } from "../Workspace.js";
 import { DbApiKind } from "./FileActions.js";
 import { log, select, text, isCancel, tasks, Option, spinner, confirm } from "@clack/prompts";
 import { ITwin, ITwinSubClass } from "@itwin/itwins-client";
@@ -7,7 +7,7 @@ import { generateColorizerMap, logError } from "../ConsoleHelper.js";
 import { Guid } from "@itwin/core-bentley";
 import { MinimalIModel, MinimalNamedVersion } from "@itwin/imodels-client-management";
 import { existsSync } from "node:fs";
-import { createECDb, createStandaloneDb, openStandaloneDb } from "../UnifiedDb.js";
+import { createECDb, createStandaloneDb, openBriefcaseDb, openStandaloneDb } from "../UnifiedDb.js";
 import { DbEditor } from "./DbEditor.js";
 import fs from "node:fs/promises";
 import { IModelConfig, saveIModelConfig } from "../IModelConfig.js";
@@ -344,15 +344,26 @@ export class NewFile {
                 if(isCancel(downloadChangesets)) {
                     return; // User cancelled the prompt
                 }
-                if(downloadChangesets) {
 
+                if(downloadChangesets) {
+                    const contextFolder = getFileContextFolderPath(ws.workspaceRootPath, relativePath);
+                    const changesetsDir = path.join(contextFolder, "changesets");
+                    if (!existsSync(changesetsDir)) {
+                        // Ensure the directory exists
+                        await fs.mkdir(changesetsDir, { recursive: true });
+                    }
+                    const downloaded = await envManager.iModelsClient.changesets.downloadList({
+                        authorization: authCallback,
+                        iModelId,
+                        targetDirectoryPath: changesetsDir
+                    });
                 }
 
             } else {
                 log.info("Downloaded iModel has no changesets available.");
             }
 
-            const db = await openStandaloneDb(absolutePath);
+            const db = await openBriefcaseDb(absolutePath);
             if(isCancel(db)) {
                 return; // User cancelled the prompt
             }
