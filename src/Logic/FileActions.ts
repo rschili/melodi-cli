@@ -1,7 +1,7 @@
-import { Workspace, WorkspaceFile } from "../Workspace.js";
-import { DbEditor } from "./DbEditor.js";
-import { Backup } from "./Backup.js";
-import { openBriefcaseDb, openECDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb.js";
+import { Workspace, WorkspaceFile } from "../Workspace";
+import { DbEditor } from "./DbEditor";
+import { Backup } from "./Backup";
+import { openBriefcaseDb, openECDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb";
 import path from "path";
 import { select, isCancel } from "@clack/prompts"
 

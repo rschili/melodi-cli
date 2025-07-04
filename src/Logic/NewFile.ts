@@ -1,21 +1,21 @@
-import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace.js";
-import { DbApiKind } from "./FileActions.js";
+import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace";
+import { DbApiKind } from "./FileActions";
 import { log, select, text, isCancel, tasks, Option, spinner, confirm } from "@clack/prompts";
 import { ITwin, ITwinSubClass } from "@itwin/itwins-client";
 import chalk from "chalk";
-import { generateColorizerMap, logError } from "../ConsoleHelper.js";
+import { generateColorizerMap, logError } from "../ConsoleHelper";
 import { Guid } from "@itwin/core-bentley";
 import { MinimalIModel, MinimalNamedVersion } from "@itwin/imodels-client-management";
 import { existsSync } from "node:fs";
-import { createECDb, createStandaloneDb, openBriefcaseDb, openStandaloneDb } from "../UnifiedDb.js";
-import { DbEditor } from "./DbEditor.js";
+import { createECDb, createStandaloneDb, openBriefcaseDb, openStandaloneDb } from "../UnifiedDb";
+import { DbEditor } from "./DbEditor";
 import fs from "node:fs/promises";
-import { IModelConfig, saveIModelConfig } from "../IModelConfig.js";
-import { applicationVersion } from "../Diagnostics.js";
+import { IModelConfig, saveIModelConfig } from "../IModelConfig";
+import { applicationVersion } from "../Diagnostics";
 import { CheckpointManager, ProgressStatus } from "@itwin/core-backend";
 import path from "path";
 import { ChangesetIdWithIndex } from "@itwin/core-common";
-import { Changesets } from "./Changesets.js";
+import { Changesets } from "./Changesets";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
@@ -343,7 +343,7 @@ export class NewFile {
                 }
 
                 if(downloadChangesets) {
-                    Changesets.downloadChangesets(ws, wsFile, iModelId);
+                    await Changesets.downloadChangesets(ws, wsFile, iModelId);
                 }
 
             } else {
@@ -354,10 +354,7 @@ export class NewFile {
             if(isCancel(db)) {
                 return; // User cancelled the prompt
             }
-            DbEditor.run(ws, { relativePath, lastTouched: new Date() }, db);
+            await DbEditor.run(ws, { relativePath, lastTouched: new Date() }, db);
         }
-/*
-        // get the imodel*/
-
     }
 }

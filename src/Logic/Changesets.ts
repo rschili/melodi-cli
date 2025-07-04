@@ -98,7 +98,7 @@ export class Changesets {
         }
 
         const downloaded = await ws.envManager.iModelsClient.changesets.downloadList({
-            authorization: ws.envManager.getAuthorization,
+            authorization: () => ws.envManager.getAuthorization(),
             iModelId,
             targetDirectoryPath: changesetsDir
         });

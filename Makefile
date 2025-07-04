@@ -29,3 +29,6 @@ remove:
 check-updates:
 	ncu
 
+clean-workspace:
+	rm -f workspace/*-shm workspace/*-wal
+

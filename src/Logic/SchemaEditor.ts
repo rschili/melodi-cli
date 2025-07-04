@@ -2,12 +2,12 @@ import { QueryOptionsBuilder, QueryRowFormat } from "@itwin/core-common";
 import chalk from "chalk";
 import semver from "semver";
 import { table } from 'table';
-import { formatWarning } from "../ConsoleHelper.js";
-import { loadSchemaInventory } from "../GithubBisSchemasHelper.js";
-import { UnifiedDb } from "../UnifiedDb.js";
-import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace.js";
+import { formatWarning } from "../ConsoleHelper";
+import { loadSchemaInventory } from "../GithubBisSchemasHelper";
+import { UnifiedDb } from "../UnifiedDb";
+import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace";
 import { log, select, isCancel } from "@clack/prompts"
-import { getUserConfigDir } from "../Workspace.UserConfig.js";
+import { getUserConfigDir } from "../Workspace.UserConfig";
 import path from "node:path";
 import { mkdirSync } from "node:fs";
 

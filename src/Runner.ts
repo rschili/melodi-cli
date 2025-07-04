@@ -1,13 +1,13 @@
 
-import { loadWorkspace, saveWorkspaceConfig, Workspace } from "./Workspace.js";
-import { applicationVersion } from "./Diagnostics.js";
-import { formatPath, formatWarning } from "./ConsoleHelper.js";
-import { FileSelector } from "./Logic/FileSelector.js";
+import { loadWorkspace, saveWorkspaceConfig, Workspace } from "./Workspace";
+import { applicationVersion } from "./Diagnostics";
+import { formatPath, formatWarning } from "./ConsoleHelper";
+import { FileSelector } from "./Logic/FileSelector";
 import * as fs from 'fs';
-import { Logger } from "./Logger.js";
+import { Logger } from "./Logger";
 import { LogLevel } from "@itwin/core-bentley";
 import { confirm, isCancel } from '@clack/prompts'
-import { UserConfig } from "./Workspace.UserConfig.js";
+import { UserConfig } from "./Workspace.UserConfig";
 
 export class Runner {
     public async run(cfg: UserConfig): Promise<void> {

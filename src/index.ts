@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-import { Runner } from "./Runner.js";
-import { applicationVersion } from "./Diagnostics.js";
+import { Runner } from "./Runner";
+import { applicationVersion } from "./Diagnostics";
 import gradient from "gradient-string";
-import { formatSuccess, printError } from "./ConsoleHelper.js";
-import { readUserConfig } from "./Workspace.UserConfig.js";
+import { formatSuccess, printError } from "./ConsoleHelper";
+import { readUserConfig } from "./Workspace.UserConfig";
 
 const banner =
   `                      _               _   _ 

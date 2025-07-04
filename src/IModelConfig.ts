@@ -2,8 +2,8 @@ import * as fs from "fs";
 import path from "path";
 import { z } from "zod/v4";
 import { Environment } from "./EnvironmentManager";
-import { printError, formatError, logError } from "./ConsoleHelper.js";
-import { applicationVersion } from "./Diagnostics.js";
+import { printError, formatError, logError } from "./ConsoleHelper";
+import { applicationVersion } from "./Diagnostics";
 import { getFileContextFolderPath, Workspace, WorkspaceFile } from "./Workspace";
 import { log } from "@clack/prompts";
 

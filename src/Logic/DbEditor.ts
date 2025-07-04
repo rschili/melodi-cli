@@ -4,17 +4,17 @@ import { stdin, stdout } from 'node:process';
 import { createInterface } from "node:readline/promises";
 import semver from "semver";
 import { ColumnUserConfig, table, TableUserConfig } from 'table';
-import { formatWarning, logError, printError, resetChar } from "../ConsoleHelper.js";
-import { loadSchemaInventory } from "../GithubBisSchemasHelper.js";
-import { UnifiedDb } from "../UnifiedDb.js";
-import { getFileContextFolderPath, saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace.js";
+import { formatWarning, logError, printError, resetChar } from "../ConsoleHelper";
+import { loadSchemaInventory } from "../GithubBisSchemasHelper";
+import { UnifiedDb } from "../UnifiedDb";
+import { getFileContextFolderPath, saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
 import { common, createEmphasize } from 'emphasize'
 import { performance } from "node:perf_hooks";
 import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
-import { getUserConfigDir } from "../Workspace.UserConfig.js";
+import { getUserConfigDir } from "../Workspace.UserConfig";
 import path from "node:path";
 import { mkdirSync } from "node:fs";
-import { SchemaEditor } from "./SchemaEditor.js";
+import { SchemaEditor } from "./SchemaEditor";
 
 const emphasize = createEmphasize(common);
 

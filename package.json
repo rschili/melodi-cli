@@ -36,7 +36,7 @@
   },
   "homepage": "https://github.com/rschili/melodi-cli#readme",
   "devDependencies": {
-    "@types/node": "^24.0.4",
+    "@types/node": "^24.0.10",
     "esbuild": "^0.25.5",
     "esbuild-node-externals": "^1.18.0",
     "typescript": "^5.8.3",
@@ -44,16 +44,16 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@itwin/core-backend": "^5.0.1",
-    "@itwin/core-common": "^5.0.1",
-    "@itwin/ecschema-metadata": "^5.0.1",
+    "@itwin/core-backend": "^5.0.2",
+    "@itwin/core-common": "^5.0.2",
+    "@itwin/ecschema-metadata": "^5.0.2",
     "@itwin/imodels-access-backend": "^6.0.1",
     "@itwin/imodels-access-common": "^6.0.1",
-    "@itwin/imodels-client-authoring": "^6.0.0",
+    "@itwin/imodels-client-authoring": "^6.0.1",
     "@itwin/itwins-client": "^1.6.1",
     "@itwin/node-cli-authorization": "^3.0.1",
-    "@itwin/object-storage-azure": "^3.0.0",
-    "@itwin/object-storage-google": "^3.0.0",
+    "@itwin/object-storage-azure": "^3.0.1",
+    "@itwin/object-storage-google": "^3.0.1",
     "@types/semver": "^7.7.0",
     "axios": "^1.10.0",
     "chalk": "^5.4.1",
@@ -63,6 +63,6 @@
     "module-alias": "^2.2.3",
     "semver": "^7.7.2",
     "table": "^6.9.0",
-    "zod": "^3.25.67"
+    "zod": "^3.25.74"
   }
 }

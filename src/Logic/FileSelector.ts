@@ -1,9 +1,9 @@
-import { detectWorkspaceFiles, SchemaVersion, Workspace, WorkspaceFile } from "../Workspace.js";
-import { NewFile } from "./NewFile.js";
-import { FileActions } from "./FileActions.js";
+import { detectWorkspaceFiles, SchemaVersion, Workspace, WorkspaceFile } from "../Workspace";
+import { NewFile } from "./NewFile";
+import { FileActions } from "./FileActions";
 import chalk from "chalk";
-import { timeSpanToString } from "../ConsoleHelper.js";
-import { Logger } from "../Logger.js";
+import { timeSpanToString } from "../ConsoleHelper";
+import { Logger } from "../Logger";
 import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
 
 export class FileSelector {

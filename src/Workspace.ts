@@ -5,11 +5,11 @@ import { z } from "zod/v4";
 import { globby } from 'globby';
 import { SQLiteDb, SqliteStatement } from "@itwin/core-backend";
 import { DbResult, OpenMode } from "@itwin/core-bentley";
-import { printError } from "./ConsoleHelper.js";
+import { printError } from "./ConsoleHelper";
 import { SemVer } from "semver";
-import { applicationVersion } from "./Diagnostics.js";
-import { EnvironmentManager } from "./EnvironmentManager.js";
-import { UserConfig } from "./Workspace.UserConfig.js";
+import { applicationVersion } from "./Diagnostics";
+import { EnvironmentManager } from "./EnvironmentManager";
+import { UserConfig } from "./Workspace.UserConfig";
 
 const WorkspaceConfigSchema = z.object({
     melodiVersion: z.string(),
@@ -156,11 +156,11 @@ export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
     await readFileProps(ws, workspaceFiles);
     ws.files = workspaceFiles;
 }
-
-// Folder to hold context information for a file. for file /home/user/workspace/file.bim the folder would be /home/user/workspace/.file.bim/
+// Folder to hold context information for a file. for file /home/user/workspace/file.bim the folder would be /home/user/workspace/file_extras/
 export function getFileContextFolderPath(root: string, relativeFilePath: string): string {
-    const absolutePath = path.join(root, `.${relativeFilePath}`);
-    return absolutePath;
+    const parsed = path.parse(relativeFilePath);
+    const contextFolderName = `${parsed.name}_extras`;
+    return path.join(root, parsed.dir, contextFolderName);
 }
 
 const schemaVersionSchema = z.object({

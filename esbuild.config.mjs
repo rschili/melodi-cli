@@ -11,4 +11,5 @@ await build({
   sourcemap: true,
   target: "node22",
   outExtension: { ".js": ".mjs" },
+  external: ["axios", "@itwin/imodels-client-management"]
 });
