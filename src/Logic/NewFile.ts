@@ -1,4 +1,4 @@
-import { getFileContextFolderPath, Workspace } from "../Workspace.js";
+import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace.js";
 import { DbApiKind } from "./FileActions.js";
 import { log, select, text, isCancel, tasks, Option, spinner, confirm } from "@clack/prompts";
 import { ITwin, ITwinSubClass } from "@itwin/itwins-client";
@@ -15,6 +15,7 @@ import { applicationVersion } from "../Diagnostics.js";
 import { CheckpointManager, ProgressStatus } from "@itwin/core-backend";
 import path from "path";
 import { ChangesetIdWithIndex } from "@itwin/core-common";
+import { Changesets } from "./Changesets.js";
 
 export class NewFile {
     public static async run(ws: Workspace): Promise<void> {
@@ -327,6 +328,8 @@ export class NewFile {
                 return;
             }
 
+            const wsFile: WorkspaceFile = { relativePath, lastTouched: new Date() }
+
             log.message("Checking for available changesets...");
             const changesets = await envManager.iModelsClient.changesets.getMinimalList({
                 authorization: authCallback,
@@ -336,9 +339,10 @@ export class NewFile {
             for await (const cs of changesets) {
                 changesetsArray.push(cs);
             }
+            const size = Changesets.calculateOverallFileSize(changesetsArray);
             if(changesetsArray.length > 0) {
                 const downloadChangesets = await confirm({
-                    message: `Downloaded iModel has ${changesetsArray.length} changesets. Do you want to download them? (If you choose not to, you can still get them later)`,
+                    message: `Downloaded iModel has ${changesetsArray.length} changesets. Do you want to download them? (Total size to download: ${(size / (1024 * 1024)).toFixed(2)} MB)`,
                     initialValue: true,
                 });
                 if(isCancel(downloadChangesets)) {
@@ -357,6 +361,9 @@ export class NewFile {
                         iModelId,
                         targetDirectoryPath: changesetsDir
                     });
+
+                    const cacheList = Changesets.downloadedChangesetsToChangesetList(ws, wsFile, downloaded);
+                    Changesets.writeChangesetListToFile(ws, wsFile, cacheList)
                 }
 
             } else {
