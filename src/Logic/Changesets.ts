@@ -1,8 +1,6 @@
 import fs from "node:fs/promises";
 import path from "path";
-import os from "os";
 import { z } from "zod/v4";
-import { globby } from 'globby';
 import { ContainingChanges, MinimalChangeset } from "@itwin/imodels-client-management";
 import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace";
 import { DownloadedChangeset } from "@itwin/imodels-client-authoring";
@@ -46,7 +44,6 @@ export class Changesets {
     }
 
     public static downloadedChangesetsToChangesetList(ws: Workspace, file: WorkspaceFile, downloadedChangesets: DownloadedChangeset[]): ChangesetList {
-        const folder = this.getChangesetsFolder(ws, file);
         const list: ChangesetList = [];
         for (const changeset of downloadedChangesets) {
             const relativePath = this.getChangesetRelativePath(ws, file, changeset.filePath);
@@ -104,6 +101,6 @@ export class Changesets {
         });
 
         const cacheList = Changesets.downloadedChangesetsToChangesetList(ws, file, downloaded);
-        Changesets.writeChangesetListToFile(ws, file, cacheList)
+        await Changesets.writeChangesetListToFile(ws, file, cacheList)
     }
 }

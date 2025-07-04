@@ -6,13 +6,13 @@ import { saveUserConfig } from "./Workspace.UserConfig";
 
 export class Logger {
     public static setLevel(level: LogLevel): void {
-        const errorFn = (cat: string, message: string, _: unknown) =>
+        const errorFn = (cat: string, message: string) =>
             log.error(`[${cat} Logger] ${chalk.white(message)}`);
-        const warningFn = (cat: string, message: string, _: unknown) =>
+        const warningFn = (cat: string, message: string) =>
             log.warn(`[${cat} Logger] ${chalk.white(message)}`);
-        const infoFn = (cat: string, message: string, _: unknown) =>
+        const infoFn = (cat: string, message: string) =>
             log.info(`[${cat} Logger] ${chalk.white(message)}`);
-        const traceFn = (cat: string, message: string, _: unknown) =>
+        const traceFn = (cat: string, message: string) =>
             log.message(`[${cat} Logger] ${chalk.gray(message)}`);
 
         switch (level) {

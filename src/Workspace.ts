@@ -57,7 +57,7 @@ export async function loadWorkspace(userConfig: UserConfig, root: string = proce
     try {
         fs.accessSync(workspaceRootPath, fs.constants.R_OK | fs.constants.W_OK)
     }
-    catch (err) {
+    catch {
         throw new Error(`The current working directory is not accessible: ${workspaceRootPath}. Please check permissions.`);
     }
 
@@ -111,7 +111,7 @@ export async function saveWorkspaceConfig(ws: Workspace): Promise<void> {
 
     try {
         fs.accessSync(ws.workspaceConfigDirPath, fs.constants.R_OK | fs.constants.W_OK);
-    } catch (err) {
+    } catch {
         throw new Error(`The workspace config directory is not accessible: ${ws.workspaceConfigDirPath}. Please check permissions.`);
     }
 

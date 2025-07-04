@@ -2,18 +2,13 @@ import { QueryBinder, QueryOptionsBuilder, QueryPropertyMetaData, QueryRowFormat
 import chalk from "chalk";
 import { stdin, stdout } from 'node:process';
 import { createInterface } from "node:readline/promises";
-import semver from "semver";
 import { ColumnUserConfig, table, TableUserConfig } from 'table';
 import { formatWarning, logError, printError, resetChar } from "../ConsoleHelper";
-import { loadSchemaInventory } from "../GithubBisSchemasHelper";
 import { UnifiedDb } from "../UnifiedDb";
-import { getFileContextFolderPath, saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
+import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
 import { common, createEmphasize } from 'emphasize'
 import { performance } from "node:perf_hooks";
-import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
-import { getUserConfigDir } from "../Workspace.UserConfig";
-import path from "node:path";
-import { mkdirSync } from "node:fs";
+import { log, select, isCancel } from "@clack/prompts"
 import { SchemaEditor } from "./SchemaEditor";
 
 const emphasize = createEmphasize(common);
@@ -46,7 +41,9 @@ export class DbEditor {
                         console.log();
                         log.message("ECSql editor. (press up/down for history, Ctrl+C to exit, use semicolon to end statement)");
                         console.log();
-                        while (await this.runECSql(ws, db)) { }
+                        while (await this.runECSql(ws, db)) {
+                            // Loop intentionally left empty: runECSql handles its own logic and exit condition
+                        }
                         break;
                     case "Sqlite":
                         console.log("Sqlite operation selected.");
@@ -128,16 +125,15 @@ export class DbEditor {
             return false;
         }
 
-        const ecsqlSingleLine = ecsql.replace(/\s*\n\s*/g, ' ').trim();
         const newLength = history.length;
         if (newLength > 10) {
             ws.config!.ecsqlHistory = history.slice(10);
             }
-        saveWorkspaceConfig(ws);
+        await saveWorkspaceConfig(ws);
 
-        let rows: any[] = [];
+        let rows: unknown[] = [];
         let metadata: QueryPropertyMetaData[] = [];
-        let classIdCache: Record<string, string> = {};
+        const classIdCache: Record<string, string> = {};
         const startTicks = performance.now();
         let queryDuration = 0;
         try {
@@ -171,7 +167,9 @@ export class DbEditor {
         for (let colIndex = 0; colIndex < metadata.length; colIndex++) {
             const colInfo = metadata[colIndex];
             for (let rowIndex = 0; rowIndex <= maxRowIndex; rowIndex++) {
-                let { value, detectedType } = await this.formatValue(rows[rowIndex][colIndex], colInfo, db, classIdCache);
+                const row = rows[rowIndex] as unknown[];
+                const { value: cValue, detectedType } = await this.formatValue(row[colIndex], colInfo, db, classIdCache);
+                let value = cValue;
                 if(detectedType === "json") {
                     jsonCells.push({ rowIndex: rowIndex + 2, colIndex }); // +2 for header and title rows
                 }
@@ -185,7 +183,7 @@ export class DbEditor {
                 }
 
                 if (value !== null && value !== undefined) {
-                    let formattedValue = String(value);
+                    const formattedValue = String(value);
                     output[rowIndex + 1][colIndex] = formattedValue;
                 }
             }
@@ -201,7 +199,7 @@ export class DbEditor {
             columns.push({ alignment, width, wrapWord: false });
         }
 
-        let config: TableUserConfig = {
+        const config: TableUserConfig = {
             columns,
             spanningCells: [
                 { col: 0, row: 0, colSpan: output[0].length, alignment: "center" },
@@ -243,7 +241,7 @@ export class DbEditor {
         return true;
     }
 
-    static async formatValue(value: any, colInfo: QueryPropertyMetaData, db: UnifiedDb, classIdCache: Record<string, string>)
+    static async formatValue(value: unknown, colInfo: QueryPropertyMetaData, db: UnifiedDb, classIdCache: Record<string, string>)
     : Promise<{value: string, detectedType?: string}> {
         if (value === null || value === undefined) {
             return {value: ""};
@@ -272,13 +270,21 @@ export class DbEditor {
         }
 
         if (colInfo.typeName === "navigation") {
-            const id = value.Id;
-            const classId = value.RelECClassId;
+            if (
+            typeof value === "object" &&
+            value !== null &&
+            "Id" in value &&
+            "RelECClassId" in value
+            ) {
+            const id = (value as { Id: string }).Id;
+            const classId = (value as { RelECClassId: string }).RelECClassId;
             if (!id || !classId) {
-                return {value: ""};
+                return { value: "" };
             }
             const className = await this.getClassName(db, classId, classIdCache);
-            return {value: `${className} ${id}`};
+            return { value: `${className} ${id}` };
+            }
+            return { value: "" };
         }
 
         if (Array.isArray(value)) {

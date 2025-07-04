@@ -14,7 +14,9 @@ export class FileSelector {
         }
         intro (`Workspace ${ws.workspaceRootPath}`);
         try {
-            while(await this.runInternal(ws)) { } // Keep showing the menu until the user chooses to exit
+            while(await this.runInternal(ws)) {
+                // Keep showing the menu until the user chooses to exit
+            } 
         } finally {
             outro();
         }

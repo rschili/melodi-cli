@@ -2,9 +2,9 @@ import * as fs from "fs";
 import path from "path";
 import { z } from "zod/v4";
 import { Environment } from "./EnvironmentManager";
-import { printError, formatError, logError } from "./ConsoleHelper";
+import { logError } from "./ConsoleHelper";
 import { applicationVersion } from "./Diagnostics";
-import { getFileContextFolderPath, Workspace, WorkspaceFile } from "./Workspace";
+import { getFileContextFolderPath, Workspace } from "./Workspace";
 import { log } from "@clack/prompts";
 
 const IModelConfigSchema = z.object({
@@ -52,7 +52,7 @@ export async function saveIModelConfig(ws: Workspace, relativePath: string, cfg:
 
     try {
         fs.accessSync(fileContextDir, fs.constants.R_OK | fs.constants.W_OK);
-    } catch (err) {
+    } catch {
         throw new Error(`The iModel config directory is not accessible: ${fileContextDir}. Please check permissions.`);
     }
 

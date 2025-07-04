@@ -4,10 +4,6 @@ import os from "os";
 import { z } from "zod/v4";
 import { printError, formatError } from "./ConsoleHelper";
 import { applicationVersion } from "./Diagnostics";
-import chalk from "chalk";
-import { isCancel, text } from "@clack/prompts";
-import Module from 'module';
-import { pathToFileURL } from 'node:url';
 
 export enum LogLevel { // copied so it's independent of @itwin/core-bentley
     /** Tracing and debugging - low level */
@@ -71,7 +67,7 @@ export async function saveUserConfig(cfg: UserConfig): Promise<void> {
 
     try {
         fs.accessSync(userConfigDir, fs.constants.R_OK | fs.constants.W_OK);
-    } catch (err) {
+    } catch {
         throw new Error(`The user config directory is not accessible: ${userConfigDir}. Please check permissions.`);
     }
 

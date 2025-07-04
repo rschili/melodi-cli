@@ -1,6 +1,5 @@
 import { select } from "@clack/prompts";
 import { IModelHost } from "@itwin/core-backend";
-import { ECClass, EntityClass, RelationshipClass } from "@itwin/ecschema-metadata";
 import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-authoring";
 import { ITwinsAccessClient } from "@itwin/itwins-client";
 import { NodeCliAuthorizationClient } from "@itwin/node-cli-authorization";

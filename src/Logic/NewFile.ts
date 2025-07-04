@@ -1,5 +1,4 @@
-import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace";
-import { DbApiKind } from "./FileActions";
+import { Workspace, WorkspaceFile } from "../Workspace";
 import { log, select, text, isCancel, tasks, Option, spinner, confirm } from "@clack/prompts";
 import { ITwin, ITwinSubClass } from "@itwin/itwins-client";
 import chalk from "chalk";
@@ -7,7 +6,7 @@ import { generateColorizerMap, logError } from "../ConsoleHelper";
 import { Guid } from "@itwin/core-bentley";
 import { MinimalIModel, MinimalNamedVersion } from "@itwin/imodels-client-management";
 import { existsSync } from "node:fs";
-import { createECDb, createStandaloneDb, openBriefcaseDb, openStandaloneDb } from "../UnifiedDb";
+import { createECDb, createStandaloneDb, openBriefcaseDb } from "../UnifiedDb";
 import { DbEditor } from "./DbEditor";
 import fs from "node:fs/promises";
 import { IModelConfig, saveIModelConfig } from "../IModelConfig";
@@ -106,14 +105,14 @@ export class NewFile {
         await tasks([
             {
             title: `Setting up environment to ${environment.toString()}`,
-            task: async (_) => {
+            task: async () => {
                 await envManager.selectEnvironment(environment);
                 return `Environment set up to ${environment.toString()}`;
                 },
             },
             {
             title: "Authenticating...",
-            task: async (_) => {
+            task: async () => {
                 await envManager.signInIfNecessary();
                 token = await envManager.authClient.getAccessToken();
                 return "Authenticated.";
@@ -121,7 +120,7 @@ export class NewFile {
             },
             {
                 title: "Detecting available iTwins...",
-                task: async (_) => {
+                task: async () => {
                     const iTwinsResponse = await envManager.iTwinsClient.queryAsync(token);
                     if (iTwinsResponse.status !== 200) {
                         throw new Error(`Failed to fetch iTwins: ${iTwinsResponse.error?.message ?? "Unknown error"}`);
@@ -144,10 +143,10 @@ export class NewFile {
                 if(colorizer) {
                     colorizedSubClass = colorizer(subClass);
                 }
-            } iTwin.type
+            }
             return {
-            label: `${chalk.bold(iTwin.displayName)} (${iTwin.id}) ${colorizedSubClass}`,
-            value: iTwin
+                label: `${chalk.bold(iTwin.displayName)} (${iTwin.id}) ${colorizedSubClass}`,
+                value: iTwin
             }});
 
         const thingToPull = await select<ITwin | "iModel" | "iTwin">({

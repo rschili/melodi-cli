@@ -41,7 +41,7 @@ async function fetchUrl(rootUrl: string, subUrl: string, cacheDirectory: string,
     const url = new URL(subUrl, rootUrl);
     const cacheFilePath = path.join(cacheDirectory, subUrl.replace(/\//g, '_'));
     const etag = etagCache[url.href];
-    let options: AxiosRequestConfig<any> = { responseType: 'text', validateStatus: (status) => status === 200 || status === 304 };
+    const options: AxiosRequestConfig<unknown> = { responseType: 'text', validateStatus: (status) => status === 200 || status === 304 };
     if(etag && await fileExists(cacheFilePath)) {
         options.headers = { 'If-None-Match': etag };
     }
@@ -62,10 +62,7 @@ async function fileExists(filePath: string): Promise<boolean> {
     try {
         const stats = await fs.stat(filePath);
         return stats.isFile();
-    } catch (error: any) {
-        if (error.code === 'ENOENT') {
-            return false; // File does not exist
-        }
-        throw error; // Rethrow other errors
+    } catch {
+        return false; // File does not exist
     }
 }

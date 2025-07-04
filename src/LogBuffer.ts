@@ -2,12 +2,12 @@ import chalk from "chalk";
 
 export class LogBuffer {
     private buffer: string[] = [];
-    private originalLog: (...args: any[]) => void = console.log;
+    private originalLog: (...args: unknown[]) => void = console.log;
 
     /** Start collecting logs (overrides console.log) */
     start() {
         this.originalLog = console.log;
-        console.log = (...args: any[]) => {
+        console.log = (...args: unknown[]) => {
             this.buffer.push(args.join(' '));
         };
     }
