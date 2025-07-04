@@ -1,6 +1,15 @@
 import path from 'path';
-import { test, expect } from 'vitest';
+import { test, expect, beforeAll, afterAll } from 'vitest';
 import { detectWorkspaceFiles, loadWorkspace } from '../src/Workspace';
+import { IModelHost } from "@itwin/core-backend";
+
+beforeAll(async () => {
+  await IModelHost.startup({});
+});
+
+afterAll(async () => {
+  await IModelHost.shutdown();
+});
 
 test('processes input file', async () => {
   const testWorkspacePath = path.resolve(__dirname, 'test-workspace');
@@ -22,5 +31,7 @@ test('processes input file', async () => {
     { relativePath: 'subfolder/briefcase.bim' },
     { relativePath: 'subfolder/standalone2.bim' },
   ];
-  expect(ws.files).toEqual(expect.arrayContaining(expectedFiles));
+  // Compare only the relativePath property, ignoring others like lastTouched
+  const actualRelativePaths = ws.files!.map(f => ({ relativePath: f.relativePath }));
+  expect(actualRelativePaths).toEqual(expect.arrayContaining(expectedFiles));
 });

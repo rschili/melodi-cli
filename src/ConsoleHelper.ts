@@ -7,14 +7,16 @@ export const formatWarning = chalk.yellowBright;
 export const formatSuccess = chalk.greenBright.bold;
 export const resetChar = "\x1B[0m";
 
-export function printError(error: unknown): void {
+export function printError(error: unknown, printAsWarning: boolean = false): void {
+    const formatter = printAsWarning ? formatWarning : formatError;
+    const label = printAsWarning ? "Warning" : "Error";
     if (error instanceof Error) {
-        console.error(formatError(`Error: ${error.message}`));
+        console.error(formatter(`${label}: ${error.message}`));
         /*if (error.stack) {
             console.error(chalk.gray(error.stack));
         }*/
     } else {
-        console.error(formatError(`Error: ${String(error)}`));
+        console.error(formatter(`${label}: ${String(error)}`));
     }
 }
 

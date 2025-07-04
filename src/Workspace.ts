@@ -236,7 +236,7 @@ async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<voi
 
             db.closeDb();
         } catch (error) {
-            printError(error);
+            printError(error, true);
         } finally {
             if(db.isOpen) {
                 db.closeDb();
