@@ -5,11 +5,12 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "build": "node esbuild.config.mjs",
     "test": "vitest",
     "start": "node dist/index.mjs",
     "lint": "eslint 'src/**/*.ts' --fix",
-    "prebuild": "npm run lint"
+    "prebuild": "npm run lint && npm run typecheck"
   },
   "bin": {
     "melodi": "dist/index.mjs"
