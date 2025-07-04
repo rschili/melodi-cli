@@ -314,13 +314,6 @@ export class NewFile {
                 });
                 await saveIModelConfig(ws, relativePath, config);
                 loader.stop("Downloaded successful.");
-                /*loader.start("Loading list of changesets...");
-                for await (const changeset of envManager.iModelsClient.changesets.getRepresentationList({ authorization: authCallback, iModelId })) {
-                    changeset.
-                    StatusLine.update(`adding or updating briefcase id:${cachedBriefcase.briefcaseId} owner:${cachedBriefcase.owner?.displayName ?? "unknown"}`);
-                    this.setBriefcase(cachedBriefcase);
-                }*/
-
             }
             catch (error: unknown) {
                 loader.stop("Failed to download iModel file.");
@@ -350,20 +343,7 @@ export class NewFile {
                 }
 
                 if(downloadChangesets) {
-                    const contextFolder = getFileContextFolderPath(ws.workspaceRootPath, relativePath);
-                    const changesetsDir = path.join(contextFolder, "changesets");
-                    if (!existsSync(changesetsDir)) {
-                        // Ensure the directory exists
-                        await fs.mkdir(changesetsDir, { recursive: true });
-                    }
-                    const downloaded = await envManager.iModelsClient.changesets.downloadList({
-                        authorization: authCallback,
-                        iModelId,
-                        targetDirectoryPath: changesetsDir
-                    });
-
-                    const cacheList = Changesets.downloadedChangesetsToChangesetList(ws, wsFile, downloaded);
-                    Changesets.writeChangesetListToFile(ws, wsFile, cacheList)
+                    Changesets.downloadChangesets(ws, wsFile, iModelId);
                 }
 
             } else {

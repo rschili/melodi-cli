@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import fs from "node:fs/promises";
 import path from "path";
 import os from "os";
 import { z } from "zod/v4";
@@ -6,6 +6,7 @@ import { globby } from 'globby';
 import { ContainingChanges, MinimalChangeset } from "@itwin/imodels-client-management";
 import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace";
 import { DownloadedChangeset } from "@itwin/imodels-client-authoring";
+import { existsSync, mkdirSync } from "node:fs";
 
 
 export const ChangesetListSchema = z.array(z.object({
@@ -66,10 +67,10 @@ export class Changesets {
     public static async readChangesetListFromFile(ws: Workspace, file: WorkspaceFile): Promise<ChangesetList> {
         const changesetsDir = this.getChangesetsFolder(ws, file);
         const changesetListFile = path.join(changesetsDir, "changeset-list.json");
-        if (!fs.existsSync(changesetListFile)) {
+        if (!existsSync(changesetListFile)) {
             return [];
         }
-        const content = await fs.promises.readFile(changesetListFile, 'utf-8');
+        const content = await fs.readFile(changesetListFile, 'utf-8');
         try {
             return ChangesetListSchema.parse(JSON.parse(content));
         } catch (error) {
@@ -79,10 +80,30 @@ export class Changesets {
 
     public static async writeChangesetListToFile(ws: Workspace, file: WorkspaceFile, changesetList: ChangesetList): Promise<void> {
         const changesetsDir = this.getChangesetsFolder(ws, file);
-        if (!fs.existsSync(changesetsDir)) {
-            fs.mkdirSync(changesetsDir, { recursive: true });
+        if (!existsSync(changesetsDir)) {
+            mkdirSync(changesetsDir, { recursive: true });
         }
         const changesetListFile = path.join(changesetsDir, "changeset-list.json");
-        await fs.promises.writeFile(changesetListFile, JSON.stringify(changesetList, null, 2), 'utf-8');
+        await fs.writeFile(changesetListFile, JSON.stringify(changesetList, null, 2), 'utf-8');
+    }
+
+    public static async downloadChangesets(ws: Workspace, file: WorkspaceFile, iModelId: string): Promise<void> {
+        const changesetsDir = this.getChangesetsFolder(ws, file);
+        if (!existsSync(changesetsDir)) {
+            mkdirSync(changesetsDir, { recursive: true });
+        }
+        if (!existsSync(changesetsDir)) {
+            // Ensure the directory exists
+            await fs.mkdir(changesetsDir, { recursive: true });
+        }
+
+        const downloaded = await ws.envManager.iModelsClient.changesets.downloadList({
+            authorization: ws.envManager.getAuthorization,
+            iModelId,
+            targetDirectoryPath: changesetsDir
+        });
+
+        const cacheList = Changesets.downloadedChangesetsToChangesetList(ws, file, downloaded);
+        Changesets.writeChangesetListToFile(ws, file, cacheList)
     }
 }
