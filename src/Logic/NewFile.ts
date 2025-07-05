@@ -349,7 +349,7 @@ export class NewFile {
                 log.info("Downloaded iModel has no changesets available.");
             }
 
-            const db = await openBriefcaseDb(absolutePath);
+            const db = await openBriefcaseDb(ws, wsFile);
             if(isCancel(db)) {
                 return; // User cancelled the prompt
             }

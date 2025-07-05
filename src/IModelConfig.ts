@@ -20,9 +20,9 @@ export type IModelConfig = z.infer<typeof IModelConfigSchema>;
 const IModelConfigFileName = "config.json";
 
 
-export async function readIModelConfig(ws: Workspace, relativePath: string): Promise<IModelConfig | undefined> {
+export async function readIModelConfig(ws: Workspace, iModelRelativePath: string): Promise<IModelConfig | undefined> {
     try {
-        const fileContextDir = getFileContextFolderPath(ws.workspaceRootPath, relativePath);
+        const fileContextDir = getFileContextFolderPath(ws.workspaceRootPath, iModelRelativePath);
         const configPath = path.join(fileContextDir, IModelConfigFileName);
         if (!fs.existsSync(configPath)) {
             return undefined; // No config file found for this iModel
@@ -38,8 +38,8 @@ export async function readIModelConfig(ws: Workspace, relativePath: string): Pro
     return undefined;
 }
 
-export async function saveIModelConfig(ws: Workspace, relativePath: string, cfg: IModelConfig): Promise<void> {
-    const fileContextDir = getFileContextFolderPath(ws.workspaceRootPath, relativePath);
+export async function saveIModelConfig(ws: Workspace, iModelRelativePath: string, cfg: IModelConfig): Promise<void> {
+    const fileContextDir = getFileContextFolderPath(ws.workspaceRootPath, iModelRelativePath);
     const configPath = path.join(fileContextDir, IModelConfigFileName);
 
     if (!fs.existsSync(fileContextDir)) {

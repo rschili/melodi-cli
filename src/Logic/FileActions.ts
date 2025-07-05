@@ -42,18 +42,19 @@ export class FileActions {
             }
 
         const dbApiKind = response as DbApiKind;
-        const absolutePath = path.join(ws.workspaceRootPath, file.relativePath);
-        const db = await this.openDb(dbApiKind, absolutePath);
+        
+        const db = await this.openDb(dbApiKind, ws, file);
         if (isCancel(db)) {
             return;
         }
         await DbEditor.run(ws, file, db);
     }
 
-    private static openDb(kind: DbApiKind, absolutePath: string): Promise<UnifiedDb | symbol> {
+    private static openDb(kind: DbApiKind, ws: Workspace, file: WorkspaceFile): Promise<UnifiedDb | symbol> {
+        const absolutePath = path.join(ws.workspaceRootPath, file.relativePath);
         switch (kind) {
             case DbApiKind.BriefcaseDb:
-                return openBriefcaseDb(absolutePath);
+                return openBriefcaseDb(ws, file);
             case DbApiKind.StandaloneDb:
                 return openStandaloneDb(absolutePath);
             case DbApiKind.SnapshotDb:

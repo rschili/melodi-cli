@@ -1,7 +1,10 @@
-import { select, isCancel } from "@clack/prompts"
+import { select, isCancel, log } from "@clack/prompts"
 import { BriefcaseDb, ECDb, ECDbOpenMode, IModelDb, SnapshotDb, SQLiteDb, StandaloneDb } from "@itwin/core-backend";
 import { ECSqlReader, QueryBinder, QueryOptions } from "@itwin/core-common";
 import { OpenMode } from "@itwin/core-bentley";
+import { IModelConfig, readIModelConfig } from "./IModelConfig";
+import { Workspace, WorkspaceFile } from "./Workspace";
+import path from "path";
 
 /**
  * Common interface for all DB implementations.
@@ -15,13 +18,19 @@ export type InnerDb = ECDb | StandaloneDb | SnapshotDb | BriefcaseDb | SQLiteDb
  */
 export class UnifiedDb implements Disposable {
     private readonly db: InnerDb;
+    private readonly iModelConfig?: IModelConfig;
 
     public get innerDb(): InnerDb {
         return this.db;
     }
 
-    constructor(dbInstance: InnerDb) {
+    public get config(): IModelConfig | undefined {
+        return this.iModelConfig;
+    }
+
+    constructor(dbInstance: InnerDb, iModelConfig?: IModelConfig) {
         this.db = dbInstance;
+        this.iModelConfig = iModelConfig;
     }
 
     public get isOpen(): boolean {
@@ -136,8 +145,19 @@ export function createStandaloneDb(path: string, rootSubject: string): UnifiedDb
     return new UnifiedDb(db);
 }
 
-export async function openBriefcaseDb(path: string): Promise<UnifiedDb | symbol> {
-    const db = await BriefcaseDb.open({ fileName: path });
+export async function openBriefcaseDb(workspace: Workspace, file: WorkspaceFile): Promise<UnifiedDb | symbol> {
+    const config = await readIModelConfig(workspace, file.relativePath);
+    if (config === undefined) {
+        throw new Error(`No iModel config found for file ${file.relativePath}. This file should exist for pulled imodels.`);
+    }
+    const absolutePath = path.join(workspace.workspaceRootPath, file.relativePath);
+    await workspace.envManager.selectEnvironment(config.environment);
+    await workspace.envManager.signInIfNecessary();
+    const mode = await promptOpenMode();
+    const db = await BriefcaseDb.open({ fileName: absolutePath, key: config.iModelId, readonly: mode === OpenMode.Readonly });
+    if(db.iModelId !== config.iModelId) {
+        log.warn(`The iModel ID in the config (${config.iModelId}) does not match the opened iModel ID (${db.iModelId}). This may indicate a mismatch between the config and the file.`);
+    }
     return new UnifiedDb(db);
 }
 
@@ -165,8 +185,4 @@ async function promptOpenMode(): Promise<OpenMode | symbol> {
 /*
         //Snapshot iModels are a static point-in-time representation of the state of an iModel. Once created, they can not be modified.
         const db = SnapshotDb.openFile(path.join(ws.workspaceRootPath, file.relativePath));
-        //A local copy of an iModel from iModelHub that can pull and potentially push changesets.
-        const db2 = BriefcaseDb.open({ fileName: path.join(ws.workspaceRootPath, file.relativePath)});
-        //Standalone iModels are read/write files that are not associated with an iTwin or managed by iModelHub.
-        const db3 = StandaloneDb.openFile(path.join(ws.workspaceRootPath, file.relativePath));
         */
