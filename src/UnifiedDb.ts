@@ -1,5 +1,5 @@
 import { select, isCancel, log } from "@clack/prompts"
-import { BriefcaseDb, ECDb, ECDbOpenMode, IModelDb, SnapshotDb, SQLiteDb, StandaloneDb } from "@itwin/core-backend";
+import { BriefcaseDb, ECDb, ECDbOpenMode, ECSqlStatement, IModelDb, SnapshotDb, SQLiteDb, StandaloneDb } from "@itwin/core-backend";
 import { ECSqlReader, QueryBinder, QueryOptions } from "@itwin/core-common";
 import { OpenMode } from "@itwin/core-bentley";
 import { IModelConfig, readIModelConfig } from "./IModelConfig";
@@ -73,6 +73,21 @@ export class UnifiedDb implements Disposable {
         throw new Error("ECSql is not supported by this DB type.");
     }
 
+    public withECSqlStatement<T>(ecsql: string, callback: (stmt: ECSqlStatement) => T, logErrors?: boolean): T {
+        if(!this.supportsECSql) {
+            throw new Error("ECSql statements are not supported by this DB type.");
+        }
+
+        if (this.db instanceof IModelDb) {
+            return this.db.withStatement(ecsql, callback, logErrors);
+        }
+        if (this.db instanceof ECDb) {
+            return this.db.withStatement(ecsql, callback, logErrors);
+        }
+        throw new Error("ECSql statements are not supported by this DB type.");
+    }
+
+
     public get supportsDumpSchemas(): boolean {
         return this.db instanceof IModelDb;
     }
@@ -83,6 +98,10 @@ export class UnifiedDb implements Disposable {
             return;
         }
         throw new Error("Dumping schemas is not implemented by this DB type (native addon wants at least DgnDb for this). Try StandaloneDb.");
+    }
+
+    public get supportsChangesets(): boolean {
+        return this.db instanceof BriefcaseDb;
     }
 
 

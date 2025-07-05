@@ -10,6 +10,7 @@ import { common, createEmphasize } from 'emphasize'
 import { performance } from "node:perf_hooks";
 import { log, select, isCancel } from "@clack/prompts"
 import { SchemaEditor } from "./SchemaEditor";
+import { DbSettings } from "./DbSettings";
 
 const emphasize = createEmphasize(common);
 
@@ -20,13 +21,16 @@ export class DbEditor {
         }
 
         while (true) {
+            const experimentalEnabled = await DbSettings.getExperimentalFeaturesEnabled(db);
             const operation = await select({
                 message: `${file.relativePath}${(db.isReadOnly ? ' (read-only)' : '')}`,
                 options: [
                 ...(db.supportsECSql ? [{ label: "ECSql", value: "ECSql" }] : []),
                 { label: "Sqlite", value: "Sqlite" },
-                { label: "Stats", value: "Stats" },
-                ...(db.supportsECSql ? [{ label: "Schemas", value: "Schemas" }] : []),
+                { label: "Check", value: "Check" },
+                ...(db.supportsDumpSchemas ? [{ label: "Schemas", value: "Schemas" }] : []),
+                ...(db.supportsChangesets ? [{ label: "Changesets", value: "Changesets" }] : []),
+                { label: `Settings (Experimental features enabled: ${experimentalEnabled ? chalk.greenBright('true') : chalk.redBright('false')})`, value: "Settings" },
                 { label: "Close", value: "Close" }
                 ],
             });
@@ -55,6 +59,12 @@ export class DbEditor {
                         break;
                     case "Schemas":
                         await SchemaEditor.run(ws, file, db);
+                        break;
+                    case "Changesets":
+                        console.log("Changesets operation selected.");
+                        break;
+                    case "Settings":
+                        await DbSettings.run(db);
                         break;
                 }
             } catch (error: unknown) {
