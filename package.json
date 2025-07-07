@@ -1,7 +1,7 @@
 {
   "name": "@rschili/melodi-cli",
   "version": "1.0.0",
-  "description": "A gentle tune that makes iModels sing and sound.",
+  "description": "iModel utility",
   "main": "dist/index.mjs",
   "type": "module",
   "scripts": {
