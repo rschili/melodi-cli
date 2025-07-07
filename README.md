@@ -1,5 +1,5 @@
 # melodi-cli
-![NPM Version](https://img.shields.io/npm/v/%40rschili%2Fmelodi-cli?registry_uri=https%3A%2F%2Fregistry.npmjs.com%2F&link=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2F%40rschili%2Fmelodi-cli)
+[![NPM Version](https://img.shields.io/npm/v/%40rschili%2Fmelodi-cli?registry_uri=https%3A%2F%2Fregistry.npmjs.com%2F)](https://www.npmjs.com/package/@rschili/melodi-cli)
 [![Build Status](https://github.com/rschili/melodi-cli/actions/workflows/node.js.yml/badge.svg)](https://github.com/rschili/melodi-cli/actions/workflows/node.js.yml)
 
 iModel repository utility
