@@ -26,6 +26,6 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    - run: npm ci
+    - run: npm install # not using npm ci because my local package-lock.json is using some packages from a private registry which I don't want the CI build to use
     - run: make build
     - run: make test
