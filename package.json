@@ -2,7 +2,7 @@
   "name": "@rschili/melodi-cli",
   "version": "1.0.0",
   "description": "A gentle tune that makes iModels sing and sound.",
-  "main": "dist/index.js",
+  "main": "dist/index.mjs",
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -15,11 +15,14 @@
   "bin": {
     "melodi": "dist/index.mjs"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist",
-    "bin",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "repository": {
     "type": "git",

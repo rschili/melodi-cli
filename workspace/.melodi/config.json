@@ -1,6 +1,7 @@
 {
   "melodiVersion": "1.0.0",
   "ecsqlHistory": [
+    "select $ from bis.Element;",
     "PRAGMA experimental_features_enabled;",
     "select *\nfrom\nbis.Element;"
   ]

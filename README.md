@@ -43,8 +43,8 @@ Next TODO:
 - [x] ESM2020 module
 - [x] Show available iTwins and iModels
 - [x] Download iModel seeds from Hub
-- [ ] Download named versions from Hub
-- [ ] Pull and merge Changesets
+- [x] Pull Changesets
+- [ ] Apply Changesets
 - [ ] Named Versions
 - [ ] Sqlite queries
 - [ ] Schema Management / Schema Import
