@@ -46,7 +46,7 @@ Next TODO:
 - [x] Query ECDb
 - [x] Unified Db type that wraps specialities of each Db [e.g. Sqlite, ECDb, Briefcase, Standalone]
 - [x] Pretty print query results
-- [x] ESM2020 module
+- [x] ESM
 - [x] Show available iTwins and iModels
 - [x] Download iModel seeds from Hub
 - [x] Pull Changesets
