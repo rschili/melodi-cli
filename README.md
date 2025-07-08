@@ -13,6 +13,10 @@ It uses local directories referred to as workspaces to store the iModels and the
 When called in an empty directory, it will create a new workspace.
 When called in a directory that already contains a workspace, it will use that workspace.
 
+## Requirements
+
+- Node.js 22.14 or later
+
 ## Installation
 
 ```bash

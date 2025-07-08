@@ -14,8 +14,7 @@ import { BackendIModelsAccess } from "@itwin/imodels-access-backend";
 
 export enum Environment {
     PROD = 'PROD',
-    QA = 'QA',
-    DEV = 'DEV',
+    QA = 'QA'
 }
 
 /**
@@ -78,12 +77,15 @@ export class EnvironmentManager {
     }
 
     public get authority(): string {
-        const authority = this._currentEnvironment === Environment.PROD
-            ? "https://ims.bentley.com/"
-            : this._currentEnvironment === Environment.QA
-                ? "https://qa-ims.bentley.com/"
-                : "https://dev-ims.bentley.com/";
-        return authority;
+        if(this._currentEnvironment === Environment.PROD) {
+            return "https://ims.bentley.com/";
+        }
+
+        if(this._currentEnvironment === Environment.QA) {
+            return "https://qa-ims.bentley.com/";
+        }
+
+        throw new Error(`Unknown environment: ${this._currentEnvironment}`);
     }
 
     public get clientId(): string {
@@ -91,9 +93,7 @@ export class EnvironmentManager {
             case Environment.PROD:
             return "native-b517RwSFtag94aBZ5lM40QCf6";
             case Environment.QA:
-            return "get a qa key you lazy bum";
-            case Environment.DEV:
-            return "get a dev key you lazy bum";
+            return "native-jq2fZ8ZMoMjTKVDghCOpjY4JQ";
             default:
             throw new Error(`Unknown environment: ${this._currentEnvironment}`);
         }
@@ -147,6 +147,7 @@ export class EnvironmentManager {
                     instance: new GoogleClientStorage(new ClientStorageWrapperFactory()),
                     }
                     ]),
+                    api: this._currentEnvironment === Environment.QA ? { baseUrl: "https://qa-api.bentley.com/imodels" } : undefined,
             }
 
             this._iModelsClient = new IModelsClient(iModelsClientOptions);
@@ -156,7 +157,7 @@ export class EnvironmentManager {
 
     public get iTwinsClient(): ITwinsAccessClient {
         if (!this._iTwinsClient) {
-            this._iTwinsClient = new ITwinsAccessClient();
+            this._iTwinsClient = new ITwinsAccessClient(this._currentEnvironment === Environment.QA ? "https://qa-api.bentley.com/itwins" : undefined);
         }
         return this._iTwinsClient;
     }
@@ -167,7 +168,6 @@ export class EnvironmentManager {
             options: [
                 {label: "PROD", value: Environment.PROD },
                 {label: "QA", value: Environment.QA },
-                {label: "DEV", value: Environment.DEV },
             ],
             initialValue: this._currentEnvironment,
         });

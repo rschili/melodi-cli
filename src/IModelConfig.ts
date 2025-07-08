@@ -11,7 +11,7 @@ const IModelConfigSchema = z.object({
     melodiVersion: z.string(),
     iModelId: z.string(),
     iTwinId: z.string().optional(),
-    environment: z.enum([Environment.PROD, Environment.QA, Environment.DEV]),
+    environment: z.enum([Environment.PROD, Environment.QA]),
     displayName: z.string(),
 });
 
