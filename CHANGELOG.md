@@ -1,3 +1,8 @@
+# 1.2.1 (2025-07-08)
+
+- Add some global error handling
+- Print a warning is Node.js version is too old
+
 # 1.2.0 (2025-07-08)
 
 - Allow pulling from QA environment

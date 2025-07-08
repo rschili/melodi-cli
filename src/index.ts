@@ -5,6 +5,21 @@ import { applicationVersion } from "./Diagnostics";
 import gradient from "gradient-string";
 import { formatSuccess, printError } from "./ConsoleHelper";
 import { readUserConfig } from "./Workspace.UserConfig";
+import chalk from "chalk";
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
+  process.exit(10);
+});
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+  process.exit(5);
+});
+
+const [major, minor] = process.versions.node.split('.').map(Number);
+if (major < 22 || (major === 22 && minor < 14)) {
+  console.error(chalk.yellowBright(`Warning: melodi-cli requires Node.js 22.14 or newer. You are running ${process.versions.node}.`));
+}
 
 const banner =
   `                      _               _   _ 
