@@ -1,3 +1,6 @@
+# 1.2.2 (2025-07-08)
+- Print build date in the banner (yeah, very minor, but still)
+
 # 1.2.1 (2025-07-08)
 
 - Add some global error handling

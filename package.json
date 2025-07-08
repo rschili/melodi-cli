@@ -1,6 +1,6 @@
 {
   "name": "@rschili/melodi-cli",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "iModel utility",
   "main": "dist/index.mjs",
   "type": "module",
@@ -13,7 +13,7 @@
     "test": "vitest",
     "start": "node dist/index.mjs",
     "lint": "eslint 'src/**/*.ts' --fix",
-    "prebuild": "npm run lint && npm run typecheck"
+    "prebuild": "echo \"export const __BUILD_DATE__ = '$(date -u +%Y-%m-%dT%H:%M:%SZ)';\" > src/buildInfo.ts && npm run lint && npm run typecheck"
   },
   "bin": {
     "melodi": "dist/index.mjs"

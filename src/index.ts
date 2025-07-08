@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { Runner } from "./Runner";
-import { applicationVersion } from "./Diagnostics";
+import { applicationBuildDate, applicationVersion } from "./Diagnostics";
 import gradient from "gradient-string";
-import { formatSuccess, printError } from "./ConsoleHelper";
+import { printError } from "./ConsoleHelper";
 import { readUserConfig } from "./Workspace.UserConfig";
 import chalk from "chalk";
 
@@ -21,17 +21,18 @@ if (major < 22 || (major === 22 && minor < 14)) {
   console.error(chalk.yellowBright(`Warning: melodi-cli requires Node.js 22.14 or newer. You are running ${process.versions.node}.`));
 }
 
+const subtitle = ` iModel repository utility      built ${applicationBuildDate} `;
+const separatorLine = "-".repeat(subtitle.length);
 const banner =
   `                      _               _   _ 
    _ __ ___     ___  | |   ___     __| | (_)
   | '_ \` _ \\   / _ \\ | |  / _ \\   / _\` | | |
   | | | | | | |  __/ | | | (_) | | (_| | | |
-  |_| |_| |_|  \\___| |_|  \\___/   \\__,_| |_| CLI
-------------------------------------------------------
-          iModel repository utility
-------------------------------------------------------`;
+  |_| |_| |_|  \\___| |_|  \\___/   \\__,_| |_| CLI v${applicationVersion}
+${separatorLine}
+ ${subtitle}
+${separatorLine}`;
 console.log(gradient(['cyan', 'white']).multiline(banner));
-console.log(formatSuccess(`v${applicationVersion}`));
 try {
   const args = process.argv.slice(2);
   if (args.length == 1) {

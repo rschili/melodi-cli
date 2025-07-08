@@ -1,7 +1,7 @@
 
 import { loadWorkspace, saveWorkspaceConfig, Workspace } from "./Workspace";
 import { applicationVersion } from "./Diagnostics";
-import { formatPath, formatWarning } from "./ConsoleHelper";
+import { formatPath, formatSuccess } from "./ConsoleHelper";
 import { FileSelector } from "./Logic/FileSelector";
 import * as fs from 'fs';
 import { Logger } from "./Logger";
@@ -17,7 +17,7 @@ export class Runner {
         if(ws.config !== undefined) {
             console.log(`Detected workspace at: ${formatPath(ws.workspaceRootPath)}`);
             if(ws.config.melodiVersion !== activeMelodiVersion) {
-                console.log(formatWarning(`The workspace was saved using a different version of melodi (${ws.config.melodiVersion}). Running version (${activeMelodiVersion}).`));
+                console.log(formatSuccess(`The workspace was saved using a different version of melodi (${ws.config.melodiVersion}). Running version (${activeMelodiVersion}).`));
             }
         } else {
             console.log(`No workspace configuration found.`);
