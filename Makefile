@@ -14,7 +14,7 @@ test:
 run:
 	npm run start
 
-publish:
+publish: build
 	npm publish --access public
 
 link:
