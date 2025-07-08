@@ -25,7 +25,7 @@ export class Runner {
                 message: `Do you want to initialize a new workspace at ${formatPath(ws.workspaceRootPath)}?`,
             });
 
-            if(!isCancel(response)) {
+            if(isCancel(response)) {
                 return;
             }
 
@@ -54,6 +54,5 @@ export class Runner {
 
         ws.config = { melodiVersion: applicationVersion};
         await saveWorkspaceConfig(ws);
-        await FileSelector.run(ws);
     }
 }

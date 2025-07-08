@@ -2,6 +2,7 @@
 
 - Add some global error handling
 - Print a warning is Node.js version is too old
+- Fix a problem during workspace initialization where the process would just exit
 
 # 1.2.0 (2025-07-08)
 
