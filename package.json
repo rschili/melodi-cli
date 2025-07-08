@@ -1,6 +1,6 @@
 {
   "name": "@rschili/melodi-cli",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "iModel utility",
   "main": "dist/index.mjs",
   "type": "module",
