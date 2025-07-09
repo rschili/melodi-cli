@@ -1,3 +1,10 @@
+# 1.3.0 (2025-07-09)
+
+- Add update checker
+- Fix schemas menu not showing for ECDb
+- Move user config into $HOME/.config/melodi/ and cache into $HOME/.cache/melodi/
+- Do not exit app when trying to open a BriefcaseDb as StandaloneDb, just show an error
+
 # 1.2.2 (2025-07-08)
 - Print build date in the banner (yeah, very minor, but still)
 

@@ -7,7 +7,7 @@ import { loadSchemaInventory } from "../GithubBisSchemasHelper";
 import { UnifiedDb } from "../UnifiedDb";
 import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace";
 import { log, select, isCancel } from "@clack/prompts"
-import { getUserConfigDir } from "../Workspace.UserConfig";
+import { getUserCacheDir } from "../Workspace.UserConfig";
 import path from "node:path";
 import { mkdirSync } from "node:fs";
 
@@ -38,7 +38,7 @@ export class SchemaEditor {
         );
         const schemasInDb = await reader.toArray();
 
-        const availableSchemas = await loadSchemaInventory(getUserConfigDir());
+        const availableSchemas = await loadSchemaInventory(getUserCacheDir());
 
         const schemaInfoMap: Record<string, SchemaInfo> = {};
         for (const row of schemasInDb) {

@@ -3,7 +3,7 @@ import { DbEditor } from "./DbEditor";
 import { Backup } from "./Backup";
 import { openBriefcaseDb, openECDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb";
 import path from "path";
-import { select, isCancel } from "@clack/prompts"
+import { select, isCancel, log } from "@clack/prompts"
 
 export enum DbApiKind {
     BriefcaseDb,
@@ -43,11 +43,17 @@ export class FileActions {
 
         const dbApiKind = response as DbApiKind;
         
-        const db = await this.openDb(dbApiKind, ws, file);
-        if (isCancel(db)) {
+        try {
+            const db = await this.openDb(dbApiKind, ws, file);
+            if (isCancel(db)) {
+                return;
+            }
+            await DbEditor.run(ws, file, db);
+        }
+        catch (error: unknown) {
+            log.error(`Failed to open file ${file.relativePath} as ${DbApiKind[dbApiKind]}: ${error instanceof Error ? error.message : String(error)}`);
             return;
         }
-        await DbEditor.run(ws, file, db);
     }
 
     private static openDb(kind: DbApiKind, ws: Workspace, file: WorkspaceFile): Promise<UnifiedDb | symbol> {

@@ -28,7 +28,7 @@ export class DbEditor {
                 ...(db.supportsECSql ? [{ label: "ECSql", value: "ECSql" }] : []),
                 /*{ label: "Sqlite", value: "Sqlite" },*/
                 /*{ label: "Check", value: "Check" },*/
-                ...(db.supportsDumpSchemas ? [{ label: "Schemas", value: "Schemas" }] : []),
+                ...(db.supportsSchemas ? [{ label: "Schemas", value: "Schemas" }] : []),
                 ...(db.supportsChangesets ? [{ label: "Changesets", value: "Changesets" }] : []),
                 { label: `Settings (Experimental features enabled: ${experimentalEnabled ? chalk.greenBright('true') : chalk.redBright('false')})`, value: "Settings" },
                 { label: "Close", value: "Close" }

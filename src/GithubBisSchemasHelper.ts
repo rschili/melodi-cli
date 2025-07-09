@@ -23,8 +23,11 @@ const ETagCacheSchema = z.record(z.string(), z.string());
 export type ETagCache = z.infer<typeof ETagCacheSchema>;
 
 export async function loadSchemaInventory(cacheDirectory: string): Promise<SchemaInventory> {
-    const etagCacheFilePath = `${cacheDirectory}/${ETagCacheFileName}`;
+    const etagCacheFilePath = path.join(cacheDirectory, ETagCacheFileName);
     let etagCache: ETagCache = {};
+    // Ensure the cache directory exists
+    await fs.mkdir(cacheDirectory, { recursive: true });
+
     if(await fileExists(etagCacheFilePath)) {
         const fileContents = await fs.readFile(etagCacheFilePath, 'utf-8');
         etagCache = ETagCacheSchema.parse(JSON.parse(fileContents));

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Runner } from "./Runner";
-import { applicationBuildDate, applicationVersion } from "./Diagnostics";
+import { applicationBuildDate, applicationVersion, checkUpdates } from "./Diagnostics";
 import gradient from "gradient-string";
 import { printError } from "./ConsoleHelper";
 import { readUserConfig } from "./Workspace.UserConfig";
@@ -34,6 +34,7 @@ ${separatorLine}
 ${separatorLine}`;
 console.log(gradient(['cyan', 'white']).multiline(banner));
 try {
+  await checkUpdates();
   const args = process.argv.slice(2);
   if (args.length == 1) {
     if (args[0] === '-v' || args[0] === '--version' || args[0] === 'version') {

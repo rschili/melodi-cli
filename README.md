@@ -29,6 +29,14 @@ npm install -g @rschili/melodi-cli
 melodi
 ```
 
+## Local files
+
+Workspaces are self-contained, but there are some files that melodi-cli stores outside of the workspace dir.
+
+- User settings are stored in $HOME/.config/melodi/
+- Cached iModels are stored in $HOME/.cache/melodi/
+- The daily update check is stored in $HOME/.config/simple-update-notifier/
+
 ## Contributing
 If you want to contribute, please fork the repository and submit a pull request.
 I'm using make to wrap all my commands, you can use that, or just call npm directly.
