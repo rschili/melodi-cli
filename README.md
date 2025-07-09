@@ -33,9 +33,13 @@ melodi
 
 Workspaces are self-contained, but there are some files that melodi-cli stores outside of the workspace dir.
 
-- User settings are stored in $HOME/.config/melodi/
-- Cached iModels are stored in $HOME/.cache/melodi/
-- The daily update check is stored in $HOME/.config/simple-update-notifier/
+- User settings are stored in
+  - **Linux/macOS:** `$XDG_CONFIG_HOME/melodi` or `$HOME/.config/melodi/`
+  - **Windows:** `%LOCALAPPDATA%\melodi\config\`
+- Cached data (e.g. downloaded schemas and known etags) are stored in
+  - **Linux/macOS:** `%XDG_CACHE_HOME/melodi/` or `$HOME/.cache/melodi/`
+  - **Windows:** `%LOCALAPPDATA%\melodi\cache\`
+- The daily update checker stores its cache in `$XDG_CONFIG_HOME/simple-update-notifier/` or `$HOME/.config/simple-update-notifier/` (The package `simple-update-notifier` is used to check for updates).
 
 ## Contributing
 If you want to contribute, please fork the repository and submit a pull request.

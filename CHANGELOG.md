@@ -1,3 +1,6 @@
+# 1.3.1 (2025-07-09)
+- Adjust user config and cache directories on Windows
+
 # 1.3.0 (2025-07-09)
 
 - Add update checker

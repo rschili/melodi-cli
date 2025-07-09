@@ -25,8 +25,14 @@ const UserConfigSchema = z.object({
 
 export type UserConfig = z.infer<typeof UserConfigSchema>;
 
-export const ConfigRelativePath = '.config/melodi';
-export const CacheRelativePath = '.cache/melodi';
+
+export const AppDirectoryName = 'melodi';
+
+export const WinConfigRelativePath = path.join(AppDirectoryName, 'config');
+export const WinCacheRelativePath = path.join(AppDirectoryName, 'cache');
+export const ConfigRelativePath = path.join('.config', AppDirectoryName);
+export const CacheRelativePath = path.join('.cache', AppDirectoryName);
+
 export const UserConfigFileName = 'config.json';
 
 export async function readUserConfig(): Promise<UserConfig> {
@@ -51,10 +57,26 @@ export async function readUserConfig(): Promise<UserConfig> {
 }
 
 export function getUserConfigDir(): string {
+    if(process.platform === 'win32' && process.env.LOCALAPPDATA) {
+        return path.join(process.env.LOCALAPPDATA, WinConfigRelativePath);
+    }
+
+    if(process.env.XDG_CONFIG_HOME) {
+        return path.join(process.env.XDG_CONFIG_HOME, AppDirectoryName);
+    }
+
     return path.join(os.homedir(), ConfigRelativePath)
 }
 
 export function getUserCacheDir(): string {
+    if(process.platform === 'win32' && process.env.LOCALAPPDATA) {
+        return path.join(process.env.LOCALAPPDATA, WinCacheRelativePath);
+    }
+
+    if(process.env.XDG_CACHE_HOME) {
+        return path.join(process.env.XDG_CACHE_HOME, AppDirectoryName);
+    }
+
     return path.join(os.homedir(), CacheRelativePath)
 }
 
