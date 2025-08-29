@@ -8,6 +8,7 @@ import { Logger } from "./Logger";
 import { LogLevel } from "@itwin/core-bentley";
 import { confirm, isCancel } from '@clack/prompts'
 import { UserConfig } from "./Workspace.UserConfig";
+import chalk from "chalk";
 
 export class Runner {
     public async run(cfg: UserConfig): Promise<void> {
@@ -20,9 +21,13 @@ export class Runner {
                 console.log(formatSuccess(`The workspace was saved using a different version of melodi (${ws.config.melodiVersion}). Running version (${activeMelodiVersion}).`));
             }
         } else {
-            console.log(`No workspace configuration found.`);
+            console.log('This directory is not a workspace. A workspace is like a project folder that contains your files and keeps track of your settings and history.');
+            console.log(`Current directory: ${formatPath(ws.workspaceRootPath)}?`);
+            if (fs.readdirSync(ws.workspaceRootPath).length !== 0) {
+                console.log(chalk.yellow('Warning: This directory is not empty.'));
+            }
             const response = await confirm({
-                message: `Do you want to initialize a new workspace at ${formatPath(ws.workspaceRootPath)}?`,
+                message: 'Would you like to initialize a new workspace here?',
             });
 
             if(isCancel(response)) {
