@@ -7,7 +7,7 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
+            "name": "Launch Program (global workspace)",
             "console": "externalTerminal",
             "skipFiles": [
                 "<node_internals>/**"
@@ -17,28 +17,26 @@
                 "${workspaceFolder}/**/*.js",
                 "${workspaceFolder}/**/*.mjs"
             ],
-            "cwd": "${workspaceFolder}/workspace/",
             "outputCapture": "std",
         },
         {
             "type": "node",
             "request": "launch",
-            "name": "Run setup",
+            "name": "Launch (local test workspace)",
             "console": "externalTerminal",
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/dist/index.mjs",
-            "args": [
-                "setup"
-            ],
             "outFiles": [
                 "${workspaceFolder}/**/*.js",
                 "${workspaceFolder}/**/*.mjs"
                 
             ],
-            "cwd": "${workspaceFolder}/workspace/",
             "outputCapture": "std",
+            "env": {
+                "MELODI_ROOT": "${workspaceFolder}/workspace"
+            }
         }
     ]
 }

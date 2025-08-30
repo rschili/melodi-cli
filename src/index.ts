@@ -49,6 +49,10 @@ try {
       console.log(`  -h, --help       Show this help message`);
       console.log();
       console.log("The tool is designed to be interactive, so it is usually run without arguments.");
+      console.log("Location of workspace, config and cache can be overwritten using environment variables.");
+      console.log("  - MELODI_CONFIG: Location of the config directory");
+      console.log("  - MELODI_CACHE: Location of the cache directory");
+      console.log("  - MELODI_ROOT: Location of the root directory");
       process.exit(0);
     }
   }

@@ -33,13 +33,31 @@ melodi
 
 Workspaces are self-contained, but there are some files that melodi-cli stores outside of the workspace dir.
 
-- User settings are stored in
-  - **Linux/macOS:** `$XDG_CONFIG_HOME/melodi` or `$HOME/.config/melodi/`
-  - **Windows:** `%LOCALAPPDATA%\melodi\config\`
-- Cached data (e.g. downloaded schemas and known etags) are stored in
-  - **Linux/macOS:** `%XDG_CACHE_HOME/melodi/` or `$HOME/.cache/melodi/`
-  - **Windows:** `%LOCALAPPDATA%\melodi\cache\`
-- The daily update checker stores its cache in `$XDG_CONFIG_HOME/simple-update-notifier/` or `$HOME/.config/simple-update-notifier/` (The package `simple-update-notifier` is used to check for updates).
+### User Configuration
+- **Linux/macOS:** `$XDG_CONFIG_HOME/melodi` or `$HOME/.config/melodi/`
+- **Windows:** `%LOCALAPPDATA%\melodi\config\`
+
+### Cache Data
+Cached data (e.g. downloaded schemas and known etags) are stored in:
+- **Linux:** `$XDG_CACHE_HOME/melodi` or `$HOME/.cache/melodi/`
+- **macOS:** `$XDG_CACHE_HOME/melodi` or `$HOME/Library/Caches/melodi/`
+- **Windows:** `%LOCALAPPDATA%\melodi\cache\`
+
+### Default Workspace Location
+When creating new workspaces, melodi will use:
+- **Linux/macOS:** The user's Documents directory (detected from XDG user-dirs on Linux) + `/melodi/`
+- **Windows:** `%USERPROFILE%\Documents\melodi\`
+
+### Update Checker
+The daily update checker stores its cache in `$XDG_CONFIG_HOME/simple-update-notifier/` or `$HOME/.config/simple-update-notifier/` (The package `simple-update-notifier` is used to check for updates).
+
+### Environment Variable Overrides
+
+You can override the default directory locations using these environment variables:
+
+- `MELODI_CONFIG` - Override the configuration directory
+- `MELODI_CACHE` - Override the cache directory  
+- `MELODI_ROOT` - Override the default workspace/documents directory
 
 ## Contributing
 If you want to contribute, please fork the repository and submit a pull request.
@@ -62,6 +80,8 @@ Next TODO:
 - [x] Show available iTwins and iModels
 - [x] Download iModel seeds from Hub
 - [x] Pull Changesets
+- [ ] Remove local working directory use global workspace instead
+- [ ] Remove database API selection step, use a Unified DB approach and auto selection
 - [ ] Apply Changesets
 - [ ] Named Versions
 - [ ] Sqlite queries
