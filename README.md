@@ -30,6 +30,7 @@ melodi
 ```
 
 ## Local files
+Listing everything stored by the application here as this gets left behind when removing as there is no real "uninstaller" logic.
 
 ### Default Workspace Location
 This is where all your databases, changesets and other workspace-related files are stored:
