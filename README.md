@@ -31,9 +31,13 @@ melodi
 
 ## Local files
 
-Workspaces are self-contained, but there are some files that melodi-cli stores outside of the workspace dir.
+### Default Workspace Location
+This is where all your databases, changesets and other workspace-related files are stored:
+- **Linux/macOS:** The user's Documents directory (detected from XDG user-dirs on Linux) + `/melodi/`
+- **Windows:** `%USERPROFILE%\Documents\melodi\`
 
 ### User Configuration
+Global options, like logging behavior
 - **Linux/macOS:** `$XDG_CONFIG_HOME/melodi` or `$HOME/.config/melodi/`
 - **Windows:** `%LOCALAPPDATA%\melodi\config\`
 
@@ -43,10 +47,7 @@ Cached data (e.g. downloaded schemas and known etags) are stored in:
 - **macOS:** `$XDG_CACHE_HOME/melodi` or `$HOME/Library/Caches/melodi/`
 - **Windows:** `%LOCALAPPDATA%\melodi\cache\`
 
-### Default Workspace Location
-When creating new workspaces, melodi will use:
-- **Linux/macOS:** The user's Documents directory (detected from XDG user-dirs on Linux) + `/melodi/`
-- **Windows:** `%USERPROFILE%\Documents\melodi\`
+Can be deleted without affecting application behavior.
 
 ### Update Checker
 The daily update checker stores its cache in `$XDG_CONFIG_HOME/simple-update-notifier/` or `$HOME/.config/simple-update-notifier/` (The package `simple-update-notifier` is used to check for updates).
