@@ -5,7 +5,7 @@ import { createInterface } from "node:readline/promises";
 import { ColumnUserConfig, table, TableUserConfig } from 'table';
 import { formatWarning, logError, printError, resetChar } from "../ConsoleHelper";
 import { UnifiedDb } from "../UnifiedDb";
-import { saveWorkspaceConfig, Workspace, WorkspaceFile } from "../Workspace";
+import { saveCommandHistory, Context, WorkspaceFile } from "../Context";
 import { common, createEmphasize } from 'emphasize'
 import { performance } from "node:perf_hooks";
 import { log, select, isCancel } from "@clack/prompts"
@@ -15,7 +15,7 @@ import { DbSettings } from "./DbSettings";
 const emphasize = createEmphasize(common);
 
 export class DbEditor {
-    public static async run(ws: Workspace, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
+    public static async run(ws: Context, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
         if (!db.isOpen) {
             throw new Error(`Db failed to open: ${file.relativePath}`);
         }
@@ -92,12 +92,12 @@ export class DbEditor {
         return cache[classIdHex];
     }
 
-    static async runECSql(ws: Workspace, db: UnifiedDb): Promise<boolean> {
+    static async runECSql(ws: Context, db: UnifiedDb): Promise<boolean> {
         const queryOptions = new QueryOptionsBuilder();
         queryOptions.setRowFormat(QueryRowFormat.UseECSqlPropertyIndexes);
         queryOptions.setLimit({ count: 101 }); // limiting to 101 rows for now. If we exceed 100 we print that we have more than 100 rows.
         queryOptions.setAbbreviateBlobs(true);
-        const history = ws.config?.ecsqlHistory ?? [];
+        const history = ws.commandCache?.ecsqlHistory ?? [];
 
         const rl = createInterface({
             input: stdin,
@@ -137,9 +137,9 @@ export class DbEditor {
 
         const newLength = history.length;
         if (newLength > 10) {
-            ws.config!.ecsqlHistory = history.slice(10);
+            ws.commandCache!.ecsqlHistory = history.slice(10);
             }
-        await saveWorkspaceConfig(ws);
+        await saveCommandHistory(ws);
 
         let rows: unknown[] = [];
         let metadata: QueryPropertyMetaData[] = [];

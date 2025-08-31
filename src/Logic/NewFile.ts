@@ -1,4 +1,4 @@
-import { Workspace, WorkspaceFile } from "../Workspace";
+import { Context, WorkspaceFile } from "../Context";
 import { log, select, text, isCancel, tasks, Option, spinner, confirm } from "@clack/prompts";
 import { ITwin, ITwinSubClass } from "@itwin/itwins-client";
 import chalk from "chalk";
@@ -17,7 +17,7 @@ import { ChangesetIdWithIndex } from "@itwin/core-common";
 import { Changesets } from "./Changesets";
 
 export class NewFile {
-    public static async run(ws: Workspace): Promise<void> {
+    public static async run(ws: Context): Promise<void> {
         const workspaceType = await select({
             message: 'Choose an option:',
             options: [
@@ -41,7 +41,7 @@ export class NewFile {
         }
     }
 
-    public static async initializeECDb(ws: Workspace): Promise<void> {
+    public static async initializeECDb(ws: Context): Promise<void> {
         const fileName = await text({
             message: "Enter the name for the new ECDb file (without extension):",
         });
@@ -63,7 +63,7 @@ export class NewFile {
         await DbEditor.run(ws, { relativePath: fileName.trim() + ".ecdb", lastTouched: new Date() }, db);
     }
 
-    public static async initializeStandaloneDb(ws: Workspace): Promise<void> {
+    public static async initializeStandaloneDb(ws: Context): Promise<void> {
         const fileName = await text({
             message: "Enter the name for the new standalone iModel file (without extension):",
         });
@@ -93,7 +93,7 @@ export class NewFile {
         await DbEditor.run(ws, { relativePath: fileNameWithExt, lastTouched: new Date() }, db);
     }
 
-    public static async downloadFromHub(ws: Workspace): Promise<void> {
+    public static async downloadFromHub(ws: Context): Promise<void> {
         const envManager = ws.envManager;
         const environment = await envManager.promptEnvironment();
         if(isCancel(environment)) {

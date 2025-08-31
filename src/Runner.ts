@@ -1,5 +1,5 @@
 
-import { loadWorkspace, saveWorkspaceConfig, Workspace } from "./Workspace";
+import { loadWorkspace, saveWorkspaceConfig, Context } from "./Context";
 import { applicationVersion } from "./Diagnostics";
 import { formatPath, formatSuccess } from "./ConsoleHelper";
 import { FileSelector } from "./Logic/FileSelector";
@@ -7,18 +7,18 @@ import * as fs from 'fs';
 import { Logger } from "./Logger";
 import { LogLevel } from "@itwin/core-bentley";
 import { confirm, isCancel } from '@clack/prompts'
-import { UserConfig } from "./Workspace.UserConfig";
+import { UserConfig } from "./UserConfig";
 import chalk from "chalk";
 
 export class Runner {
     public async run(cfg: UserConfig): Promise<void> {
-        const ws: Workspace = await loadWorkspace(cfg);
+        const ws: Context = await loadWorkspace(cfg);
         const activeMelodiVersion = applicationVersion;
         Logger.setLevel(ws.userConfig.logging ?? LogLevel.None);
-        if(ws.config !== undefined) {
+        if(ws.commandCache !== undefined) {
             console.log(`Detected workspace at: ${formatPath(ws.workspaceRootPath)}`);
-            if(ws.config.melodiVersion !== activeMelodiVersion) {
-                console.log(formatSuccess(`The workspace was saved using a different version of melodi (${ws.config.melodiVersion}). Running version (${activeMelodiVersion}).`));
+            if(ws.commandCache.melodiVersion !== activeMelodiVersion) {
+                console.log(formatSuccess(`The workspace was saved using a different version of melodi (${ws.commandCache.melodiVersion}). Running version (${activeMelodiVersion}).`));
             }
         } else {
             console.log('This directory is not a workspace. A workspace is like a project folder that contains your files and keeps track of your settings and history.');
@@ -52,12 +52,12 @@ export class Runner {
         }
     }
 
-    private static async initWorkspace(ws: Workspace): Promise<void> {
-        if (ws.config !== undefined) {
+    private static async initWorkspace(ws: Context): Promise<void> {
+        if (ws.commandCache !== undefined) {
             throw new Error("The 'config' property must be undefined during initialization.");
         }
 
-        ws.config = { melodiVersion: applicationVersion};
+        ws.commandCache = { melodiVersion: applicationVersion};
         await saveWorkspaceConfig(ws);
     }
 }

@@ -42,7 +42,7 @@ export function getCacheDir(): string {
     }
 }
 
-export function getDocumentsDir(): string {
+export function getRootDir(): string {
     if (process.env[MELODI_ROOT_ENV]) {
         return process.env[MELODI_ROOT_ENV];
     }
@@ -52,13 +52,13 @@ export function getDocumentsDir(): string {
     if (process.platform === "win32") {
         // Windows Known Folders: usually %USERPROFILE%\Documents
         const docs = path.join(process.env.USERPROFILE || home, "Documents");
-        return appName ? path.join(docs, appName) : docs;
+        return path.join(docs, appName);
     }
 
     if (process.platform === "darwin") {
         // macOS: ~/Documents
         const docs = path.join(home, "Documents");
-        return appName ? path.join(docs, appName) : docs;
+        return path.join(docs, appName);
     }
 
     if (process.platform === "linux") {
@@ -78,9 +78,9 @@ export function getDocumentsDir(): string {
             docs = path.join(home, "Documents");
         }
 
-        return appName ? path.join(docs, appName) : docs;
+        return path.join(docs, appName);
     }
 
     // fallback
-    return appName ? path.join(home, appName) : home;
+    return path.join(home, appName);
 }

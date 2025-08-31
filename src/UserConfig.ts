@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import path from "path";
-import os from "os";
 import { z } from "zod/v4";
 import { printError, formatError } from "./ConsoleHelper";
 import { applicationVersion } from "./Diagnostics";
@@ -25,21 +24,12 @@ const UserConfigSchema = z.object({
 
 export type UserConfig = z.infer<typeof UserConfigSchema>;
 
-
-export const AppDirectoryName = 'melodi';
-
-export const WinConfigRelativePath = path.join(AppDirectoryName, 'config');
-export const WinCacheRelativePath = path.join(AppDirectoryName, 'cache');
-export const ConfigRelativePath = path.join('.config', AppDirectoryName);
-export const CacheRelativePath = path.join('.cache', AppDirectoryName);
-
 export const UserConfigFileName = 'config.json';
 
-export async function readUserConfig(): Promise<UserConfig> {
+export async function readUserConfig(userConfigDir: string): Promise<UserConfig> {
     try {
-        const userConfigDir = getUserConfigDir();
         const userConfigPath = path.join(userConfigDir, UserConfigFileName);
-        if (fs.existsSync(getUserConfigDir())) {
+        if (fs.existsSync(userConfigPath)) {
             // If the user config does not exist, return the default user config
             const data = await fs.promises.readFile(userConfigPath, 'utf-8');
             const json = JSON.parse(data);
@@ -56,38 +46,9 @@ export async function readUserConfig(): Promise<UserConfig> {
     };
 }
 
-export function getUserConfigDir(): string {
-    if(process.platform === 'win32' && process.env.LOCALAPPDATA) {
-        return path.join(process.env.LOCALAPPDATA, WinConfigRelativePath);
-    }
-
-    if(process.env.XDG_CONFIG_HOME) {
-        return path.join(process.env.XDG_CONFIG_HOME, AppDirectoryName);
-    }
-
-    return path.join(os.homedir(), ConfigRelativePath)
-}
-
-export function getUserCacheDir(): string {
-    if(process.platform === 'win32' && process.env.LOCALAPPDATA) {
-        return path.join(process.env.LOCALAPPDATA, WinCacheRelativePath);
-    }
-
-    if(process.env.XDG_CACHE_HOME) {
-        return path.join(process.env.XDG_CACHE_HOME, AppDirectoryName);
-    }
-
-    return path.join(os.homedir(), CacheRelativePath)
-}
-
-export async function saveUserConfig(cfg: UserConfig): Promise<void> {
-    const userConfigDir = getUserConfigDir();
+export async function saveUserConfig(cfg: UserConfig, userConfigDir: string): Promise<void> {
     const userConfigPath = path.join(userConfigDir, UserConfigFileName);
     // Validate the config before saving
-    if (!fs.existsSync(userConfigDir)) {
-        await fs.promises.mkdir(userConfigDir, { recursive: true });
-    }
-
     if (!fs.lstatSync(userConfigDir).isDirectory()) {
         throw new Error(`The user config directory is not a valid directory: ${userConfigDir}`);
     }

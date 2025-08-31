@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import path from "path";
-import os from "os";
 import { z } from "zod/v4";
 import { globby } from 'globby';
 import { SQLiteDb, SqliteStatement } from "@itwin/core-backend";
@@ -9,26 +8,28 @@ import { printError } from "./ConsoleHelper";
 import { SemVer } from "semver";
 import { applicationVersion } from "./Diagnostics";
 import { EnvironmentManager } from "./EnvironmentManager";
-import { UserConfig } from "./Workspace.UserConfig";
+import { UserConfig } from "./UserConfig";
 
-const WorkspaceConfigSchema = z.object({
+const CommandCacheSchema = z.object({
     melodiVersion: z.string(),
     ecsqlHistory: z.array(z.string()).optional(),
 });
 
-export type WorkspaceConfig = z.infer<typeof WorkspaceConfigSchema>;
+export type CommandCache = z.infer<typeof CommandCacheSchema>;
 
-export const MelodiConfigFolderName = '.melodi';
-export const CacheFolderName = '.itwinjs-cache';
-export const ConfigFileName = 'config.json';
+export const CommandHistoryFileName = 'commandHistory.json';
 
-export type Workspace = {
-    workspaceRootPath: string;
-    workspaceConfigDirPath: string;
-    config?: WorkspaceConfig;
+export type MelodiFolders = {
+    configDir: string;
+    cacheDir: string;
+    rootDir: string;
+};
+
+export type Context = {
+    folders: MelodiFolders;
+    commandCache: CommandCache;
     userConfig: UserConfig;
     files?: WorkspaceFile[];
-
     envManager: EnvironmentManager;
 }
 
@@ -43,85 +44,76 @@ export type WorkspaceFile = {
     elements?: number; // Optional: number of bis_Element records in the iModel, if applicable
 }
 
-export async function loadWorkspace(userConfig: UserConfig, root: string = process.cwd()): Promise<Workspace> {
+export async function loadWorkspace(userConfig: UserConfig, folders: MelodiFolders): Promise<Context> {
     // check if there is a ".melodi" subdirectory in the current working directory
     
-    const workspaceRootPath = root;
-    const userConfigDirPath = path.join(os.homedir(), MelodiConfigFolderName)
-    const melodiConfigPath = path.join(workspaceRootPath, MelodiConfigFolderName);
-    const cacheDirPath = path.join(workspaceRootPath, CacheFolderName);
-    if (!fs.existsSync(workspaceRootPath) || !fs.lstatSync(workspaceRootPath).isDirectory()) {
-        throw new Error(`The current working directory is not a valid directory: ${workspaceRootPath}`);
-    }
-
     try {
-        fs.accessSync(workspaceRootPath, fs.constants.R_OK | fs.constants.W_OK)
+        fs.accessSync(folders.rootDir, fs.constants.R_OK | fs.constants.W_OK)
     }
     catch {
-        throw new Error(`The current working directory is not accessible: ${workspaceRootPath}. Please check permissions.`);
+        throw new Error(`The root directory is not accessible: ${folders.rootDir}. Please check permissions.`);
     }
 
-    const configPath = path.join(melodiConfigPath, ConfigFileName);
-    const environment = new EnvironmentManager(cacheDirPath);
-    if (!fs.existsSync(configPath)) {
+    const environment = new EnvironmentManager(folders.cacheDir);
+    const commandHistoryPath = path.join(folders.cacheDir, CommandHistoryFileName);
+
+    if (!fs.existsSync(commandHistoryPath)) {
         return {
-            workspaceRootPath,
-            workspaceConfigDirPath: melodiConfigPath,
+            folders,
+            commandCache: {
+                melodiVersion: applicationVersion,
+                ecsqlHistory: []
+            },
             envManager: environment,
             userConfig
         };
     }
 
-    const config = await readWorkspaceConfig(configPath);
-    // create the user config directory if it doesn't exist
-    if (!fs.existsSync(userConfigDirPath)) {
-        await fs.promises.mkdir(userConfigDirPath, { recursive: true });
-    }
+    const commandHistory = await readCommandHistory(commandHistoryPath);
 
     return {
-        workspaceRootPath,
-        workspaceConfigDirPath: melodiConfigPath,
-        config,
+        folders,
+        commandCache: commandHistory,
         envManager: environment,
         userConfig
     };
 }
 
 // Read and validate config
-export async function readWorkspaceConfig(configPath: string): Promise<WorkspaceConfig> {
-    const data = await fs.promises.readFile(configPath, 'utf-8');
+export async function readCommandHistory(filePath: string): Promise<CommandCache> {
+    const data = await fs.promises.readFile(filePath, 'utf-8');
     const json = JSON.parse(data);
-    return await WorkspaceConfigSchema.parseAsync(json);
+    return await CommandCacheSchema.parseAsync(json);
 }
 
 // Save config (overwrite)
-export async function saveWorkspaceConfig(ws: Workspace): Promise<void> {
-    if(ws.config === undefined) {
-        throw new Error("Workspace config is undefined. Please provide a valid config.");
+export async function saveCommandHistory(ctx: Context): Promise<void> {
+    if(ctx.commandCache === undefined) {
+        throw new Error("Command history is undefined. Please provide a valid config.");
     }
 
     // Validate the config before saving
-    if (!fs.existsSync(ws.workspaceConfigDirPath)) {
-        await fs.promises.mkdir(ws.workspaceConfigDirPath, { recursive: true });
+    if (!fs.existsSync(ctx.folders.cacheDir)) {
+        await fs.promises.mkdir(ctx.folders.cacheDir, { recursive: true });
     }
 
-    if (!fs.lstatSync(ws.workspaceConfigDirPath).isDirectory()) {
-        throw new Error(`The workspace config directory is not a valid directory: ${ws.workspaceConfigDirPath}`);
+    if (!fs.lstatSync(ctx.folders.cacheDir).isDirectory()) {
+        throw new Error(`The cache directory is not a valid directory: ${ctx.folders.cacheDir}`);
     }
 
     try {
-        fs.accessSync(ws.workspaceConfigDirPath, fs.constants.R_OK | fs.constants.W_OK);
+        fs.accessSync(ctx.folders.cacheDir, fs.constants.R_OK | fs.constants.W_OK);
     } catch {
-        throw new Error(`The workspace config directory is not accessible: ${ws.workspaceConfigDirPath}. Please check permissions.`);
+        throw new Error(`The cache directory is not accessible: ${ctx.folders.cacheDir}. Please check permissions.`);
     }
 
-    const configPath = path.join(ws.workspaceConfigDirPath, ConfigFileName);
-    ws.config.melodiVersion = applicationVersion; // Ensure the version is up-to-date
-    const data = JSON.stringify(ws.config, undefined, 2);
-    await fs.promises.writeFile(configPath, data, 'utf-8');
+    const filePath = path.join(ctx.folders.cacheDir, CommandHistoryFileName);
+    ctx.commandCache.melodiVersion = applicationVersion; // Ensure the version is up-to-date
+    const data = JSON.stringify(ctx.commandCache, undefined, 2);
+    await fs.promises.writeFile(filePath, data, 'utf-8');
 }
 
-export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
+export async function detectFiles(ctx: Context): Promise<void> {
     const patterns = [
         '**/*.bim',
         '**/*.ecdb',
@@ -133,7 +125,7 @@ export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
     ];
 
     const files = await globby(patterns, {
-        cwd: ws.workspaceRootPath,
+        cwd: ctx.folders.rootDir,
         absolute: false,
         deep: 2,          // Limit to 2 levels deep
         dot: false,       // Don't match dotfiles/folders
@@ -142,7 +134,7 @@ export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
     });
 
     const workspaceFiles: WorkspaceFile[] = files.map(file => {
-        const absolutePath = path.join(ws.workspaceRootPath, file);
+        const absolutePath = path.join(ctx.folders.rootDir, file);
 
         const stats = fs.statSync(absolutePath);
         const lastTouched = new Date(Math.max(stats.mtime.getTime(), stats.birthtime.getTime(), stats.ctime.getTime()));
@@ -153,8 +145,8 @@ export async function detectWorkspaceFiles(ws: Workspace): Promise<void> {
         };
     });
 
-    await readFileProps(ws, workspaceFiles);
-    ws.files = workspaceFiles;
+    await readFileProps(ctx, workspaceFiles);
+    ctx.files = workspaceFiles;
 }
 // Folder to hold context information for a file. for file /home/user/workspace/file.bim the folder would be /home/user/workspace/file_extras/
 export function getFileContextFolderPath(root: string, relativeFilePath: string): string {
@@ -172,7 +164,7 @@ const schemaVersionSchema = z.object({
 
 export type SchemaVersion = z.infer<typeof schemaVersionSchema>;
 
-async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<void> {
+async function readFileProps(ctx: Context, files: WorkspaceFile[]): Promise<void> {
     if (files.length === 0) {
         return;
     }
@@ -180,7 +172,7 @@ async function readFileProps(ws: Workspace, files: WorkspaceFile[]): Promise<voi
     const db = new SQLiteDb();
     for (const file of files) {
         try {
-            const absolutePath = path.join(ws.workspaceRootPath, file.relativePath);
+            const absolutePath = path.join(ctx.folders.rootDir, file.relativePath);
             db.openDb(absolutePath, OpenMode.Readonly);
             db.withPreparedSqliteStatement("SELECT Name, Val FROM be_Local", (stmt: SqliteStatement) => {
                 while (stmt.step() === DbResult.BE_SQLITE_ROW) {

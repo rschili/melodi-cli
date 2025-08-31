@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { Environment } from "./EnvironmentManager";
 import { logError } from "./ConsoleHelper";
 import { applicationVersion } from "./Diagnostics";
-import { getFileContextFolderPath, Workspace } from "./Workspace";
+import { getFileContextFolderPath, Context } from "./Context";
 import { log } from "@clack/prompts";
 
 const IModelConfigSchema = z.object({
@@ -20,9 +20,9 @@ export type IModelConfig = z.infer<typeof IModelConfigSchema>;
 const IModelConfigFileName = "config.json";
 
 
-export async function readIModelConfig(ws: Workspace, iModelRelativePath: string): Promise<IModelConfig | undefined> {
+export async function readIModelConfig(ctx: Context, iModelRelativePath: string): Promise<IModelConfig | undefined> {
     try {
-        const fileContextDir = getFileContextFolderPath(ws.workspaceRootPath, iModelRelativePath);
+        const fileContextDir = getFileContextFolderPath(ctx.folders.rootDir, iModelRelativePath);
         const configPath = path.join(fileContextDir, IModelConfigFileName);
         if (!fs.existsSync(configPath)) {
             return undefined; // No config file found for this iModel
@@ -38,8 +38,8 @@ export async function readIModelConfig(ws: Workspace, iModelRelativePath: string
     return undefined;
 }
 
-export async function saveIModelConfig(ws: Workspace, iModelRelativePath: string, cfg: IModelConfig): Promise<void> {
-    const fileContextDir = getFileContextFolderPath(ws.workspaceRootPath, iModelRelativePath);
+export async function saveIModelConfig(ctx: Context, iModelRelativePath: string, cfg: IModelConfig): Promise<void> {
+    const fileContextDir = getFileContextFolderPath(ctx.folders.rootDir, iModelRelativePath);
     const configPath = path.join(fileContextDir, IModelConfigFileName);
 
     if (!fs.existsSync(fileContextDir)) {

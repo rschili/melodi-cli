@@ -1,6 +1,6 @@
 import path from 'path';
 import { test, expect, beforeAll, afterAll } from 'vitest';
-import { detectWorkspaceFiles, loadWorkspace } from '../src/Workspace';
+import { detectFiles, loadWorkspace } from '../src/Context';
 import { IModelHost } from "@itwin/core-backend";
 
 beforeAll(async () => {
@@ -18,10 +18,10 @@ test('processes input file', async () => {
   expect(ws).toBeDefined();
   expect(ws.workspaceRootPath).toBe(testWorkspacePath);
   expect(ws.files).toBeUndefined();
-  expect(ws.config).toBeDefined();
-  expect(ws.config!.melodiVersion).toEqual("0.9.1");
+  expect(ws.commandCache).toBeDefined();
+  expect(ws.commandCache!.melodiVersion).toEqual("0.9.1");
 
-  await detectWorkspaceFiles(ws);
+  await detectFiles(ws);
   expect(ws.files).toBeDefined();
   expect(ws.files!.length).toBeGreaterThan(0);
   const expectedFiles = [

@@ -1,20 +1,23 @@
-import { detectWorkspaceFiles, SchemaVersion, Workspace, WorkspaceFile } from "../Workspace";
+import { detectFiles, SchemaVersion, Context, WorkspaceFile } from "../Context";
 import { NewFile } from "./NewFile";
-import { FileActions } from "./FileActions";
 import chalk from "chalk";
 import { timeSpanToString } from "../ConsoleHelper";
 import { Logger } from "../Logger";
 import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
+import { openBriefcaseDb, openECDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb";
+import path from "path";
+import { DbEditor } from "./DbEditor";
+import { readIModelConfig } from "../IModelConfig";
 
 export class FileSelector {
 
-    public static async run(ws: Workspace): Promise<void> {
-        if(ws.config === undefined) {
+    public static async run(ctx: Context): Promise<void> {
+        if(ctx.commandCache === undefined) {
             throw new Error("The 'config' property must be undefined during initialization.");
         }
-        intro (`Workspace ${ws.workspaceRootPath}`);
+        intro (`Workspace ${ctx.folders.rootDir}`);
         try {
-            while(await this.runInternal(ws)) {
+            while(await this.runInternal(ctx)) {
                 // Keep showing the menu until the user chooses to exit
             } 
         } finally {
@@ -22,11 +25,11 @@ export class FileSelector {
         }
     }
 
-    private static async runInternal(ws: Workspace): Promise<boolean> {
+    private static async runInternal(ws: Context): Promise<boolean> {
         const loader = spinner();
         try {
             loader.start("Detecting files...");
-            await detectWorkspaceFiles(ws);
+            await detectFiles(ws);
             loader.stop("Workspace contents loaded successfully.");
         }
         catch (error: unknown) {
@@ -98,7 +101,12 @@ export class FileSelector {
             return true; // re-run the loop after creating a new Db
         }
 
-        await FileActions.run(ws, choice as WorkspaceFile)
+        const file = choice as WorkspaceFile;
+        const db = await this.openDb(ws, file)
+        if(isCancel(db))
+            return true;
+
+        await DbEditor.run(ws, file, db);
         return true; // re-run the loop after file actions
     }
 
@@ -125,7 +133,24 @@ export class FileSelector {
         return `${version.major}.${version.minor}.${version.sub1}.${version.sub2}`;
     }
 
-    static async showSettings(ws: Workspace): Promise<void> {
+    static async openDb(ctx: Context, file: WorkspaceFile): Promise<UnifiedDb | symbol> {
+        const absolutePath = path.join(ctx.folders.rootDir, file.relativePath);
+        if(file.ecDbVersion === undefined) {
+            throw new Error("The selected DB type (sqlite) is not supported in this version of the tool.");
+        }
+
+        if(file.bisCoreVersion === undefined) {
+            return openECDb(absolutePath);
+        }
+        const fileConfig = await readIModelConfig(ctx, file.relativePath);
+        if(fileConfig === undefined) {
+            return openStandaloneDb(absolutePath);
+        }
+
+        return openBriefcaseDb(ctx, file, fileConfig);
+    }
+
+    static async showSettings(ws: Context): Promise<void> {
         while (true) {
             const choice = await select<string>({
                 message: 'Select a setting to change',

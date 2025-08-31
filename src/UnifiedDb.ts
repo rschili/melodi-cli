@@ -2,8 +2,8 @@ import { select, isCancel, log } from "@clack/prompts"
 import { BriefcaseDb, ECDb, ECDbOpenMode, ECSqlStatement, IModelDb, SnapshotDb, SQLiteDb, StandaloneDb } from "@itwin/core-backend";
 import { ECSqlReader, QueryBinder, QueryOptions } from "@itwin/core-common";
 import { OpenMode } from "@itwin/core-bentley";
-import { IModelConfig, readIModelConfig } from "./IModelConfig";
-import { Workspace, WorkspaceFile } from "./Workspace";
+import { IModelConfig } from "./IModelConfig";
+import { Context, WorkspaceFile } from "./Context";
 import path from "path";
 
 /**
@@ -167,14 +167,13 @@ export function createStandaloneDb(path: string, rootSubject: string): UnifiedDb
     return new UnifiedDb(db);
 }
 
-export async function openBriefcaseDb(workspace: Workspace, file: WorkspaceFile): Promise<UnifiedDb | symbol> {
-    const config = await readIModelConfig(workspace, file.relativePath);
+export async function openBriefcaseDb(ctx: Context, file: WorkspaceFile, config: IModelConfig): Promise<UnifiedDb | symbol> {
     if (config === undefined) {
         throw new Error(`No iModel config found for file ${file.relativePath}. This file should exist for pulled imodels.`);
     }
-    const absolutePath = path.join(workspace.workspaceRootPath, file.relativePath);
-    await workspace.envManager.selectEnvironment(config.environment);
-    await workspace.envManager.signInIfNecessary();
+    const absolutePath = path.join(ctx.folders.rootDir, file.relativePath);
+    await ctx.envManager.selectEnvironment(config.environment);
+    await ctx.envManager.signInIfNecessary();
     const mode = await promptOpenMode();
     const db = await BriefcaseDb.open({ fileName: absolutePath, key: config.iModelId, readonly: mode === OpenMode.Readonly });
     if(db.iModelId !== config.iModelId) {

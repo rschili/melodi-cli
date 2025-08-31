@@ -1,13 +1,13 @@
 import path from "path";
-import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace";
+import { getFileContextFolderPath, Context, WorkspaceFile } from "../Context";
 import { isCancel, spinner, text } from "@clack/prompts";
 import fs from "node:fs/promises";
 import * as fsSync from 'fs';
 
 export class Backup {
-    public static async run(ws: Workspace, file: WorkspaceFile): Promise<void> {
-        const absolutePath = path.join(ws.workspaceRootPath, file.relativePath);
-        const contextDirPath = getFileContextFolderPath(ws.workspaceRootPath, file.relativePath);
+    public static async run(ws: Context, file: WorkspaceFile): Promise<void> {
+        const absolutePath = path.join(ws.folders.rootDir, file.relativePath);
+        const contextDirPath = getFileContextFolderPath(ws.folders.rootDir, file.relativePath);
         const ext = path.extname(file.relativePath);
         const relativePathWithoutExt = file.relativePath.slice(0, -ext.length);
 
@@ -22,8 +22,8 @@ export class Backup {
         if (!targetWithExt.endsWith(ext)) {
             targetWithExt += ext;
         }
-        const targetPath = path.join(ws.workspaceRootPath, targetWithExt);
-        const targetContextDirPath = getFileContextFolderPath(ws.workspaceRootPath, targetWithExt);
+        const targetPath = path.join(ws.folders.rootDir, targetWithExt);
+        const targetContextDirPath = getFileContextFolderPath(ws.folders.rootDir, targetWithExt);
 
         const targetExists = fsSync.existsSync(targetPath);
         const contextDirExists = fsSync.existsSync(targetContextDirPath);

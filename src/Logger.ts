@@ -1,8 +1,8 @@
-import { Workspace } from "./Workspace";
+import { Context } from "./Context";
 import { Logger as BeLogger, LogLevel } from "@itwin/core-bentley";
 import chalk from "chalk";
 import { isCancel, log, select } from "@clack/prompts";
-import { saveUserConfig } from "./Workspace.UserConfig";
+import { saveUserConfig } from "./UserConfig";
 
 export class Logger {
     public static setLevel(level: LogLevel): void {
@@ -55,7 +55,7 @@ export class Logger {
         }
     }
 
-    public static async configure(ws: Workspace) {
+    public static async configure(ws: Context) {
         const selectedLevel = ws.userConfig.logging ?? LogLevel.None;
         const choice = await select<LogLevel>({
                 message: 'Logging',
@@ -76,7 +76,7 @@ export class Logger {
 
         ws.userConfig.logging = choice;
         this.setLevel(choice);
-        await saveUserConfig(ws.userConfig);
+        await saveUserConfig(ws.userConfig, ws.folders.configDir);
 
     }
 }

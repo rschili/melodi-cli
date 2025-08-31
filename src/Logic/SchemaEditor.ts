@@ -5,9 +5,9 @@ import { table } from 'table';
 import { formatWarning } from "../ConsoleHelper";
 import { loadSchemaInventory } from "../GithubBisSchemasHelper";
 import { UnifiedDb } from "../UnifiedDb";
-import { getFileContextFolderPath, Workspace, WorkspaceFile } from "../Workspace";
+import { getFileContextFolderPath, Context, WorkspaceFile } from "../Context";
 import { log, select, isCancel } from "@clack/prompts"
-import { getUserCacheDir } from "../Workspace.UserConfig";
+import { getUserCacheDir } from "../UserConfig";
 import path from "node:path";
 import { mkdirSync } from "node:fs";
 
@@ -20,7 +20,7 @@ type SchemaInfo = {
 
 export class SchemaEditor {
 
-    static async run(ws: Workspace, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
+    static async run(ws: Context, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
         //Workflow:
         // 1. Get schemas in DB, and available schemas
         // 2. Build a list of choices + info about available updates

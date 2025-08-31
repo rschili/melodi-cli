@@ -3,9 +3,11 @@
 import { Runner } from "./Runner";
 import { applicationBuildDate, applicationVersion, checkUpdates } from "./Diagnostics";
 import gradient from "gradient-string";
-import { printError } from "./ConsoleHelper";
-import { readUserConfig } from "./Workspace.UserConfig";
+import { formatPath, printError } from "./ConsoleHelper";
+import { readUserConfig } from "./UserConfig";
 import chalk from "chalk";
+import { getCacheDir, getConfigDir, getRootDir } from "./SystemFolders";
+import { promises as fs } from "fs";
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection:", reason);
@@ -57,7 +59,17 @@ try {
     }
   }
 
-  const userConfig = await readUserConfig();
+  const cacheDir = getCacheDir();
+  const configDir = getConfigDir();
+  const rootDir = getRootDir();
+  // Ensure directories exist
+  await fs.mkdir(cacheDir, { recursive: true });
+  await fs.mkdir(configDir, { recursive: true });
+  await fs.mkdir(rootDir, { recursive: true });
+  const userConfig = await readUserConfig(configDir);
+  console.log(`Using config directory: ${formatPath(configDir)}`);
+  console.log(`Using cache directory: ${formatPath(cacheDir)}`);
+  console.log(`Using documents directory: ${formatPath(rootDir)}`);
 
   const runner = new Runner();
   await runner.run(userConfig);
@@ -69,3 +81,4 @@ try {
   printError(error);
   process.exit(1);
 }
+
