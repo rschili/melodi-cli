@@ -1,7 +1,8 @@
 import path from 'path';
 import { test, expect, beforeAll, afterAll } from 'vitest';
-import { detectFiles, loadWorkspace } from '../src/Context';
+import { detectFiles, loadContext } from '../src/Context';
 import { IModelHost } from "@itwin/core-backend";
+import { getCacheDir, getConfigDir } from "../src/SystemFolders";
 
 beforeAll(async () => {
   await IModelHost.startup({});
@@ -13,13 +14,17 @@ afterAll(async () => {
 
 test('processes input file', async () => {
   const testWorkspacePath = path.resolve(__dirname, 'test-workspace');
+  const folders = {
+    rootDir: testWorkspacePath,
+    cacheDir: getCacheDir(),
+    configDir: getConfigDir(),
+  };
 
-  const ws = await loadWorkspace({melodiVersion: "1.0.0"}, testWorkspacePath);
+  const ws = await loadContext({melodiVersion: "1.0.0"}, folders);
   expect(ws).toBeDefined();
-  expect(ws.workspaceRootPath).toBe(testWorkspacePath);
+  expect(ws.folders.rootDir).toBe(testWorkspacePath);
   expect(ws.files).toBeUndefined();
   expect(ws.commandCache).toBeDefined();
-  expect(ws.commandCache!.melodiVersion).toEqual("0.9.1");
 
   await detectFiles(ws);
   expect(ws.files).toBeDefined();

@@ -1,3 +1,7 @@
+# 1.4.0 (2025-08-31)
+- Remove local workspace folders and use a global folder instead
+- Streamline File opening, selecting a DB type is no longer needed
+
 # 1.3.1 (2025-07-09)
 - Adjust user config and cache directories on Windows
 

@@ -55,8 +55,8 @@ export class Logger {
         }
     }
 
-    public static async configure(ws: Context) {
-        const selectedLevel = ws.userConfig.logging ?? LogLevel.None;
+    public static async configure(ctx: Context) {
+        const selectedLevel = ctx.userConfig.logging ?? LogLevel.None;
         const choice = await select<LogLevel>({
                 message: 'Logging',
                 options: [
@@ -74,9 +74,9 @@ export class Logger {
             return;
         }
 
-        ws.userConfig.logging = choice;
+        ctx.userConfig.logging = choice;
         this.setLevel(choice);
-        await saveUserConfig(ws.userConfig, ws.folders.configDir);
+        await saveUserConfig(ctx.userConfig, ctx.folders.configDir);
 
     }
 }

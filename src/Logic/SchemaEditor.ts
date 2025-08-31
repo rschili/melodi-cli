@@ -7,7 +7,6 @@ import { loadSchemaInventory } from "../GithubBisSchemasHelper";
 import { UnifiedDb } from "../UnifiedDb";
 import { getFileContextFolderPath, Context, WorkspaceFile } from "../Context";
 import { log, select, isCancel } from "@clack/prompts"
-import { getUserCacheDir } from "../UserConfig";
 import path from "node:path";
 import { mkdirSync } from "node:fs";
 
@@ -20,7 +19,7 @@ type SchemaInfo = {
 
 export class SchemaEditor {
 
-    static async run(ws: Context, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
+    static async run(ctx: Context, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
         //Workflow:
         // 1. Get schemas in DB, and available schemas
         // 2. Build a list of choices + info about available updates
@@ -38,7 +37,7 @@ export class SchemaEditor {
         );
         const schemasInDb = await reader.toArray();
 
-        const availableSchemas = await loadSchemaInventory(getUserCacheDir());
+        const availableSchemas = await loadSchemaInventory(ctx.folders.cacheDir);
 
         const schemaInfoMap: Record<string, SchemaInfo> = {};
         for (const row of schemasInDb) {
@@ -133,7 +132,7 @@ export class SchemaEditor {
 
         if (schemaOption === "__dump__") {
             const currentTime = Math.floor((Date.now() - new Date("2020-01-01").getTime()) / 1000).toString(36);
-            const dumpPath = path.join(getFileContextFolderPath(ws.workspaceRootPath, file.relativePath), `schemas_dump_${currentTime}`) ;
+            const dumpPath = path.join(getFileContextFolderPath(ctx.folders.rootDir, file.relativePath), `schemas_dump_${currentTime}`) ;
             log.info(`Dumping all schemas to: ${dumpPath}`);
             mkdirSync(dumpPath, { recursive: true });
 

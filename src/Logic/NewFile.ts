@@ -17,7 +17,7 @@ import { ChangesetIdWithIndex } from "@itwin/core-common";
 import { Changesets } from "./Changesets";
 
 export class NewFile {
-    public static async run(ws: Context): Promise<void> {
+    public static async run(ctx: Context): Promise<void> {
         const workspaceType = await select({
             message: 'Choose an option:',
             options: [
@@ -33,22 +33,22 @@ export class NewFile {
 
         switch (workspaceType) {
             case "__download__":
-                return this.downloadFromHub(ws);
+                return this.downloadFromHub(ctx);
             case "__ecdb__":
-                return this.initializeECDb(ws);
+                return this.initializeECDb(ctx);
             case "__standalone__":
-                return this.initializeStandaloneDb(ws);
+                return this.initializeStandaloneDb(ctx);
         }
     }
 
-    public static async initializeECDb(ws: Context): Promise<void> {
+    public static async initializeECDb(ctx: Context): Promise<void> {
         const fileName = await text({
             message: "Enter the name for the new ECDb file (without extension):",
         });
         if(isCancel(fileName)) {
             return; // User cancelled the prompt
         }
-        const filePath = path.join(ws.workspaceRootPath, fileName.trim() + ".ecdb");
+        const filePath = path.join(ctx.folders.rootDir, fileName.trim() + ".ecdb");
         const dirPath = path.dirname(filePath);
         if (!existsSync(dirPath)) {
             // Ensure the directory exists
@@ -56,14 +56,14 @@ export class NewFile {
         }
         if (existsSync(filePath)) {
             log.error(`File "${filePath}" already exists. Please choose a different name.`);
-            return this.initializeECDb(ws);
+            return this.initializeECDb(ctx);
         }
 
         const db = createECDb(filePath);
-        await DbEditor.run(ws, { relativePath: fileName.trim() + ".ecdb", lastTouched: new Date() }, db);
+        await DbEditor.run(ctx, { relativePath: fileName.trim() + ".ecdb", lastTouched: new Date() }, db);
     }
 
-    public static async initializeStandaloneDb(ws: Context): Promise<void> {
+    public static async initializeStandaloneDb(ctx: Context): Promise<void> {
         const fileName = await text({
             message: "Enter the name for the new standalone iModel file (without extension):",
         });
@@ -71,7 +71,7 @@ export class NewFile {
             return; // User cancelled the prompt
         }
         const fileNameWithExt = fileName.trim() + ".bim";
-        const filePath = path.join(ws.workspaceRootPath, fileNameWithExt);
+        const filePath = path.join(ctx.folders.rootDir, fileNameWithExt);
         const dirPath = path.dirname(filePath);
         if (!existsSync(dirPath)) {
             // Ensure the directory exists
@@ -79,7 +79,7 @@ export class NewFile {
         }
         if (existsSync(filePath)) {
             log.error(`File "${filePath}" already exists. Please choose a different name.`);
-            return this.initializeStandaloneDb(ws);
+            return this.initializeStandaloneDb(ctx);
         }
 
         const rootSubject = await text({
@@ -90,11 +90,11 @@ export class NewFile {
             return; // User cancelled the prompt
         }
         const db = createStandaloneDb(filePath, rootSubject.trim());
-        await DbEditor.run(ws, { relativePath: fileNameWithExt, lastTouched: new Date() }, db);
+        await DbEditor.run(ctx, { relativePath: fileNameWithExt, lastTouched: new Date() }, db);
     }
 
-    public static async downloadFromHub(ws: Context): Promise<void> {
-        const envManager = ws.envManager;
+    public static async downloadFromHub(ctx: Context): Promise<void> {
+        const envManager = ctx.envManager;
         const environment = await envManager.promptEnvironment();
         if(isCancel(environment)) {
             return; // User cancelled the prompt
@@ -286,7 +286,7 @@ export class NewFile {
                 }
 
                 relativePath = selectedName.trim() + ".bim";
-                absolutePath = path.join(ws.workspaceRootPath, relativePath);
+                absolutePath = path.join(ctx.folders.rootDir, relativePath);
 
                 if (existsSync(absolutePath)) {
                     log.error(`File "${absolutePath}" already exists. Please choose a different name.`);
@@ -311,7 +311,7 @@ export class NewFile {
                         return ProgressStatus.Continue;
                     }
                 });
-                await saveIModelConfig(ws, relativePath, config);
+                await saveIModelConfig(ctx, relativePath, config);
                 loader.stop("Downloaded successful.");
             }
             catch (error: unknown) {
@@ -342,18 +342,18 @@ export class NewFile {
                 }
 
                 if(downloadChangesets) {
-                    await Changesets.downloadChangesets(ws, wsFile, iModelId);
+                    await Changesets.downloadChangesets(ctx, wsFile, iModelId);
                 }
 
             } else {
                 log.info("Downloaded iModel has no changesets available.");
             }
 
-            const db = await openBriefcaseDb(ws, wsFile);
+            const db = await openBriefcaseDb(ctx, wsFile, config);
             if(isCancel(db)) {
                 return; // User cancelled the prompt
             }
-            await DbEditor.run(ws, { relativePath, lastTouched: new Date() }, db);
+            await DbEditor.run(ctx, { relativePath, lastTouched: new Date() }, db);
         }
     }
 }

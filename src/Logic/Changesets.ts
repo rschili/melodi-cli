@@ -21,14 +21,14 @@ export const ChangesetListSchema = z.array(z.object({
 export type ChangesetList = z.infer<typeof ChangesetListSchema>;
 
 export class Changesets {
-    public static getChangesetsFolder(ws: Context, file: WorkspaceFile): string {
-        const contextFolder = getFileContextFolderPath(ws.folders.rootDir, file.relativePath);
+    public static getChangesetsFolder(ctx: Context, file: WorkspaceFile): string {
+        const contextFolder = getFileContextFolderPath(ctx.folders.rootDir, file.relativePath);
         const changesetsDir = path.join(contextFolder, "changesets");
         return changesetsDir;
     }
 
-    public static getChangesetRelativePath(ws: Context, file: WorkspaceFile, absolutePath: string): string {
-        const changesetsDir = this.getChangesetsFolder(ws, file);
+    public static getChangesetRelativePath(ctx: Context, file: WorkspaceFile, absolutePath: string): string {
+        const changesetsDir = this.getChangesetsFolder(ctx, file);
         if (!absolutePath.startsWith(changesetsDir)) {
             throw new Error(`Absolute path ${absolutePath} does not start with changesets directory ${changesetsDir}`);
         }
@@ -43,10 +43,10 @@ export class Changesets {
         return changesets.reduce((total, changeset) => total + (changeset.fileSize || 0), 0);
     }
 
-    public static downloadedChangesetsToChangesetList(ws: Context, file: WorkspaceFile, downloadedChangesets: DownloadedChangeset[]): ChangesetList {
+    public static downloadedChangesetsToChangesetList(ctx: Context, file: WorkspaceFile, downloadedChangesets: DownloadedChangeset[]): ChangesetList {
         const list: ChangesetList = [];
         for (const changeset of downloadedChangesets) {
-            const relativePath = this.getChangesetRelativePath(ws, file, changeset.filePath);
+            const relativePath = this.getChangesetRelativePath(ctx, file, changeset.filePath);
             list.push({
                 id: changeset.id,
                 displayName: changeset.displayName,
@@ -61,8 +61,8 @@ export class Changesets {
         return list;
     }
 
-    public static async readChangesetListFromFile(ws: Context, file: WorkspaceFile): Promise<ChangesetList> {
-        const changesetsDir = this.getChangesetsFolder(ws, file);
+    public static async readChangesetListFromFile(ctx: Context, file: WorkspaceFile): Promise<ChangesetList> {
+        const changesetsDir = this.getChangesetsFolder(ctx, file);
         const changesetListFile = path.join(changesetsDir, "changeset-list.json");
         if (!existsSync(changesetListFile)) {
             return [];
@@ -75,8 +75,8 @@ export class Changesets {
         }
     }
 
-    public static async writeChangesetListToFile(ws: Context, file: WorkspaceFile, changesetList: ChangesetList): Promise<void> {
-        const changesetsDir = this.getChangesetsFolder(ws, file);
+    public static async writeChangesetListToFile(ctx: Context, file: WorkspaceFile, changesetList: ChangesetList): Promise<void> {
+        const changesetsDir = this.getChangesetsFolder(ctx, file);
         if (!existsSync(changesetsDir)) {
             mkdirSync(changesetsDir, { recursive: true });
         }
@@ -84,8 +84,8 @@ export class Changesets {
         await fs.writeFile(changesetListFile, JSON.stringify(changesetList, null, 2), 'utf-8');
     }
 
-    public static async downloadChangesets(ws: Context, file: WorkspaceFile, iModelId: string): Promise<void> {
-        const changesetsDir = this.getChangesetsFolder(ws, file);
+    public static async downloadChangesets(ctx: Context, file: WorkspaceFile, iModelId: string): Promise<void> {
+        const changesetsDir = this.getChangesetsFolder(ctx, file);
         if (!existsSync(changesetsDir)) {
             mkdirSync(changesetsDir, { recursive: true });
         }
@@ -94,13 +94,13 @@ export class Changesets {
             await fs.mkdir(changesetsDir, { recursive: true });
         }
 
-        const downloaded = await ws.envManager.iModelsClient.changesets.downloadList({
-            authorization: () => ws.envManager.getAuthorization(),
+        const downloaded = await ctx.envManager.iModelsClient.changesets.downloadList({
+            authorization: () => ctx.envManager.getAuthorization(),
             iModelId,
             targetDirectoryPath: changesetsDir
         });
 
-        const cacheList = Changesets.downloadedChangesetsToChangesetList(ws, file, downloaded);
-        await Changesets.writeChangesetListToFile(ws, file, cacheList)
+        const cacheList = Changesets.downloadedChangesetsToChangesetList(ctx, file, downloaded);
+        await Changesets.writeChangesetListToFile(ctx, file, cacheList)
     }
 }

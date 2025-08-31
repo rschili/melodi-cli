@@ -15,7 +15,7 @@ import { DbSettings } from "./DbSettings";
 const emphasize = createEmphasize(common);
 
 export class DbEditor {
-    public static async run(ws: Context, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
+    public static async run(ctx: Context, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
         if (!db.isOpen) {
             throw new Error(`Db failed to open: ${file.relativePath}`);
         }
@@ -45,7 +45,7 @@ export class DbEditor {
                         console.log();
                         log.message("ECSql editor. (press up/down for history, Ctrl+C to exit, use semicolon to end statement)");
                         console.log();
-                        while (await this.runECSql(ws, db)) {
+                        while (await this.runECSql(ctx, db)) {
                             // Loop intentionally left empty: runECSql handles its own logic and exit condition
                         }
                         break;
@@ -58,7 +58,7 @@ export class DbEditor {
                         // Add Stats operation logic here
                         break;
                     case "Schemas":
-                        await SchemaEditor.run(ws, file, db);
+                        await SchemaEditor.run(ctx, file, db);
                         break;
                     case "Changesets":
                         console.log("Changesets operation selected.");
@@ -92,12 +92,12 @@ export class DbEditor {
         return cache[classIdHex];
     }
 
-    static async runECSql(ws: Context, db: UnifiedDb): Promise<boolean> {
+    static async runECSql(ctx: Context, db: UnifiedDb): Promise<boolean> {
         const queryOptions = new QueryOptionsBuilder();
         queryOptions.setRowFormat(QueryRowFormat.UseECSqlPropertyIndexes);
         queryOptions.setLimit({ count: 101 }); // limiting to 101 rows for now. If we exceed 100 we print that we have more than 100 rows.
         queryOptions.setAbbreviateBlobs(true);
-        const history = ws.commandCache?.ecsqlHistory ?? [];
+        const history = ctx.commandCache?.ecsqlHistory ?? [];
 
         const rl = createInterface({
             input: stdin,
@@ -137,9 +137,9 @@ export class DbEditor {
 
         const newLength = history.length;
         if (newLength > 10) {
-            ws.commandCache!.ecsqlHistory = history.slice(10);
+            ctx.commandCache!.ecsqlHistory = history.slice(10);
             }
-        await saveCommandHistory(ws);
+        await saveCommandHistory(ctx);
 
         let rows: unknown[] = [];
         let metadata: QueryPropertyMetaData[] = [];

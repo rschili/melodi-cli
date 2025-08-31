@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
-import { Runner } from "./Runner";
 import { applicationBuildDate, applicationVersion, checkUpdates } from "./Diagnostics";
 import gradient from "gradient-string";
-import { formatPath, printError } from "./ConsoleHelper";
+import { formatPath, formatSuccess, printError } from "./ConsoleHelper";
 import { readUserConfig } from "./UserConfig";
 import chalk from "chalk";
 import { getCacheDir, getConfigDir, getRootDir } from "./SystemFolders";
 import { promises as fs } from "fs";
+import { Context, loadContext } from "./Context";
+import { FileSelector } from "./Logic/FileSelector";
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection:", reason);
@@ -70,9 +71,17 @@ try {
   console.log(`Using config directory: ${formatPath(configDir)}`);
   console.log(`Using cache directory: ${formatPath(cacheDir)}`);
   console.log(`Using documents directory: ${formatPath(rootDir)}`);
+  const ctx: Context = await loadContext(userConfig, { cacheDir, configDir, rootDir });
+  if(ctx.commandCache.melodiVersion !== applicationVersion) {
+      console.log(formatSuccess(`The workspace was saved using a different version of melodi (${ctx.commandCache.melodiVersion}). Running version (${applicationVersion}).`));
+  }
 
-  const runner = new Runner();
-  await runner.run(userConfig);
+  try {
+      await ctx.envManager.startup();
+      await FileSelector.run(ctx);
+  } finally {
+      await ctx.envManager.shutdown();
+  }
   process.exit(0);
 } catch (error: unknown) {
   if (error instanceof Error && error.name === 'ExitPromptError') { // ctrl+c on inquirer

@@ -25,11 +25,11 @@ export class FileSelector {
         }
     }
 
-    private static async runInternal(ws: Context): Promise<boolean> {
+    private static async runInternal(ctx: Context): Promise<boolean> {
         const loader = spinner();
         try {
             loader.start("Detecting files...");
-            await detectFiles(ws);
+            await detectFiles(ctx);
             loader.stop("Workspace contents loaded successfully.");
         }
         catch (error: unknown) {
@@ -37,13 +37,13 @@ export class FileSelector {
             throw error;
         }
 
-        if(ws.files === undefined || ws.files.length === 0) {
+        if(ctx.files === undefined || ctx.files.length === 0) {
             log.step("Workspace is curently empty");
         }
 
         const fileChoices: Option<WorkspaceFile>[] = [];
-        if(ws.files !== undefined) {
-            fileChoices.push(...ws.files!.map(file => ({
+        if(ctx.files !== undefined) {
+            fileChoices.push(...ctx.files!.map(file => ({
                 label: file.relativePath, 
                 hint: FileSelector.getFileDescription(file),
                 value: file,})));
@@ -92,21 +92,21 @@ export class FileSelector {
         }
 
         if (choice === settingsValue) {
-            await this.showSettings(ws);
+            await this.showSettings(ctx);
             return true; // re-run the loop after showing settings
         }
 
         if (choice === createNewValue) {
-            await NewFile.run(ws);
+            await NewFile.run(ctx);
             return true; // re-run the loop after creating a new Db
         }
 
         const file = choice as WorkspaceFile;
-        const db = await this.openDb(ws, file)
+        const db = await this.openDb(ctx, file)
         if(isCancel(db))
             return true;
 
-        await DbEditor.run(ws, file, db);
+        await DbEditor.run(ctx, file, db);
         return true; // re-run the loop after file actions
     }
 
@@ -150,12 +150,12 @@ export class FileSelector {
         return openBriefcaseDb(ctx, file, fileConfig);
     }
 
-    static async showSettings(ws: Context): Promise<void> {
+    static async showSettings(ctx: Context): Promise<void> {
         while (true) {
             const choice = await select<string>({
                 message: 'Select a setting to change',
                 options: [
-                    { label: "Logging: " + Logger.getCurrentLevelString(ws.userConfig.logging), value: "logging" },
+                    { label: "Logging: " + Logger.getCurrentLevelString(ctx.userConfig.logging), value: "logging" },
                     { label: "(Back)", value: "exit" },
                 ],
                 maxItems: 10,
@@ -166,7 +166,7 @@ export class FileSelector {
             }
 
             if (choice === "logging") {
-                await Logger.configure(ws);
+                await Logger.configure(ctx);
                 return; //continue; So long as there is only one option, we can return here
             }
         }

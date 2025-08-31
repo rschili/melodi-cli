@@ -44,7 +44,7 @@ export type WorkspaceFile = {
     elements?: number; // Optional: number of bis_Element records in the iModel, if applicable
 }
 
-export async function loadWorkspace(userConfig: UserConfig, folders: MelodiFolders): Promise<Context> {
+export async function loadContext(userConfig: UserConfig, folders: MelodiFolders): Promise<Context> {
     // check if there is a ".melodi" subdirectory in the current working directory
     
     try {

@@ -5,9 +5,9 @@ import fs from "node:fs/promises";
 import * as fsSync from 'fs';
 
 export class Backup {
-    public static async run(ws: Context, file: WorkspaceFile): Promise<void> {
-        const absolutePath = path.join(ws.folders.rootDir, file.relativePath);
-        const contextDirPath = getFileContextFolderPath(ws.folders.rootDir, file.relativePath);
+    public static async run(ctx: Context, file: WorkspaceFile): Promise<void> {
+        const absolutePath = path.join(ctx.folders.rootDir, file.relativePath);
+        const contextDirPath = getFileContextFolderPath(ctx.folders.rootDir, file.relativePath);
         const ext = path.extname(file.relativePath);
         const relativePathWithoutExt = file.relativePath.slice(0, -ext.length);
 
@@ -22,14 +22,14 @@ export class Backup {
         if (!targetWithExt.endsWith(ext)) {
             targetWithExt += ext;
         }
-        const targetPath = path.join(ws.folders.rootDir, targetWithExt);
-        const targetContextDirPath = getFileContextFolderPath(ws.folders.rootDir, targetWithExt);
+        const targetPath = path.join(ctx.folders.rootDir, targetWithExt);
+        const targetContextDirPath = getFileContextFolderPath(ctx.folders.rootDir, targetWithExt);
 
         const targetExists = fsSync.existsSync(targetPath);
         const contextDirExists = fsSync.existsSync(targetContextDirPath);
         if (targetExists || contextDirExists) {
             console.log("Backup file or its context directory already exists. Please choose a different name.");
-            await Backup.run(ws, file);
+            await Backup.run(ctx, file);
             return;
         }
 
