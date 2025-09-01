@@ -1,10 +1,10 @@
 import { detectFiles, SchemaVersion, Context, WorkspaceFile } from "../Context";
 import { NewFile } from "./NewFile";
 import chalk from "chalk";
-import { timeSpanToString } from "../ConsoleHelper";
+import { printError, timeSpanToString } from "../ConsoleHelper";
 import { Logger } from "../Logger";
 import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
-import { openBriefcaseDb, openECDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb";
+import { openBriefcaseDb, openECDb, openSnapshotDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb";
 import path from "path";
 import { DbEditor } from "./DbEditor";
 import { readIModelConfig } from "../IModelConfig";
@@ -102,16 +102,25 @@ export class FileSelector {
         }
 
         const file = choice as WorkspaceFile;
-        const db = await this.openDb(ctx, file)
-        if(isCancel(db))
-            return true;
+        try {
+            const db = await this.openDb(ctx, file)
+            if(isCancel(db))
+                return true;
 
-        await DbEditor.run(ctx, file, db);
+            await DbEditor.run(ctx, file, db);
+        } catch (error: unknown) {
+            printError(error);
+        }
+
         return true; // re-run the loop after file actions
     }
 
     static getFileDescription(file: WorkspaceFile): string {
         const descriptions: string[] = [];
+        if(file.bisCoreVersion !== undefined) {
+            descriptions.push(file.hasITwinId ? chalk.green("Briefcase") : chalk.yellow("Standalone"));
+        }
+
         if(file.ecDbVersion !== undefined) {
             descriptions.push(`ECDb ${chalk.white(FileSelector.getSchemaVersionString(file.ecDbVersion))}`);
         }
@@ -126,7 +135,9 @@ export class FileSelector {
         if(file.parentChangeSetId !== undefined) {
             descriptions.push(`ChangeSet: ${chalk.white(file.parentChangeSetId)}`);
         }
-        return descriptions.join("  ");
+
+        
+        return descriptions.join(" ");
     }
 
     static getSchemaVersionString(version: SchemaVersion): string {
@@ -144,7 +155,11 @@ export class FileSelector {
         }
         const fileConfig = await readIModelConfig(ctx, file.relativePath);
         if(fileConfig === undefined) {
-            return openStandaloneDb(absolutePath);
+            if(!file.hasITwinId) {
+                return openStandaloneDb(absolutePath);
+            }
+
+            return openSnapshotDb(absolutePath);
         }
 
         return openBriefcaseDb(ctx, file, fileConfig);

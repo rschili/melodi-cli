@@ -60,7 +60,7 @@ export class NewFile {
         }
 
         const db = createECDb(filePath);
-        await DbEditor.run(ctx, { relativePath: fileName.trim() + ".ecdb", lastTouched: new Date() }, db);
+        await DbEditor.run(ctx, { relativePath: fileName.trim() + ".ecdb", lastTouched: new Date(), hasITwinId: false }, db);
     }
 
     public static async initializeStandaloneDb(ctx: Context): Promise<void> {
@@ -90,7 +90,7 @@ export class NewFile {
             return; // User cancelled the prompt
         }
         const db = createStandaloneDb(filePath, rootSubject.trim());
-        await DbEditor.run(ctx, { relativePath: fileNameWithExt, lastTouched: new Date() }, db);
+        await DbEditor.run(ctx, { relativePath: fileNameWithExt, lastTouched: new Date(), hasITwinId: false }, db);
     }
 
     public static async downloadFromHub(ctx: Context): Promise<void> {
@@ -320,7 +320,7 @@ export class NewFile {
                 return;
             }
 
-            const wsFile: WorkspaceFile = { relativePath, lastTouched: new Date() }
+            const wsFile: WorkspaceFile = { relativePath, lastTouched: new Date(), hasITwinId: true }
 
             log.message("Checking for available changesets...");
             const changesets = await envManager.iModelsClient.changesets.getMinimalList({
@@ -353,7 +353,7 @@ export class NewFile {
             if(isCancel(db)) {
                 return; // User cancelled the prompt
             }
-            await DbEditor.run(ctx, { relativePath, lastTouched: new Date() }, db);
+            await DbEditor.run(ctx, wsFile, db);
         }
     }
 }

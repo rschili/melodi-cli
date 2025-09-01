@@ -162,6 +162,11 @@ export async function openStandaloneDb(path: string): Promise<UnifiedDb | symbol
     return new UnifiedDb(db);
 }
 
+export async function openSnapshotDb(path: string): Promise<UnifiedDb | symbol> {
+    const db = SnapshotDb.openFile(path);
+    return new UnifiedDb(db);
+}
+
 export function createStandaloneDb(path: string, rootSubject: string): UnifiedDb {
     const db = StandaloneDb.createEmpty(path, { rootSubject: { name: rootSubject } });
     return new UnifiedDb(db);

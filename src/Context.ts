@@ -42,6 +42,7 @@ export type WorkspaceFile = {
     dgn_DbVersion?: SchemaVersion;
     bisCoreVersion?: SemVer;
     elements?: number; // Optional: number of bis_Element records in the iModel, if applicable
+    hasITwinId: boolean
 }
 
 export async function loadContext(userConfig: UserConfig, folders: MelodiFolders): Promise<Context> {
@@ -142,6 +143,7 @@ export async function detectFiles(ctx: Context): Promise<void> {
         return {
             relativePath: file,
             lastTouched,
+            hasITwinId: false,
         };
     });
 
@@ -168,6 +170,9 @@ async function readFileProps(ctx: Context, files: WorkspaceFile[]): Promise<void
     if (files.length === 0) {
         return;
     }
+
+    // ItwinId: 
+    // Count(*) FROM be_Prop WHERE Namespace='be_Db' AND Name='ProjectGuid' AND Id=0 AND SubId=0 AND DATA <> NULL"
 
     const db = new SQLiteDb();
     for (const file of files) {
@@ -225,6 +230,12 @@ async function readFileProps(ctx: Context, files: WorkspaceFile[]): Promise<void
                     }
                 });
             }
+
+            db.withPreparedSqliteStatement("SELECT Count(*) FROM be_Prop WHERE Namespace='be_Db' AND Name='ProjectGuid' AND Id=0 AND SubId=0 AND DATA NOT NULL", (stmt: SqliteStatement) => {
+                if (stmt.step() === DbResult.BE_SQLITE_ROW) {
+                    file.hasITwinId = true;
+                }
+            });
 
             db.closeDb();
         } catch (error) {
