@@ -1,6 +1,6 @@
 {
   "name": "@rschili/melodi-cli",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "iModel utility",
   "main": "dist/index.mjs",
   "type": "module",
@@ -71,6 +71,7 @@
     "@itwin/object-storage-azure": "^3.0.4",
     "@itwin/object-storage-core": "^3.0.4",
     "@itwin/object-storage-google": "^3.0.4",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@types/semver": "^7.7.1",
     "axios": "^1.13.6",
     "chalk": "^5.6.2",

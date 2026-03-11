@@ -11,6 +11,7 @@ import { performance } from "node:perf_hooks";
 import { log, select, isCancel } from "@clack/prompts"
 import { SchemaEditor } from "./SchemaEditor";
 import { DbSettings } from "./DbSettings";
+import { McpServerHost } from "./McpServer";
 
 const emphasize = createEmphasize(common);
 
@@ -26,6 +27,7 @@ export class DbEditor {
                 message: `${file.relativePath}${(db.isReadOnly ? ' (read-only)' : '')}`,
                 options: [
                 ...(db.supportsECSql ? [{ label: "ECSql", value: "ECSql" }] : []),
+                ...(db.supportsECSql ? [{ label: "Host MCP (Http)", value: "MCP" }] : []),
                 /*{ label: "Sqlite", value: "Sqlite" },*/
                 /*{ label: "Check", value: "Check" },*/
                 ...(db.supportsSchemas ? [{ label: "Schemas", value: "Schemas" }] : []),
@@ -48,6 +50,9 @@ export class DbEditor {
                         while (await this.runECSql(ctx, db)) {
                             // Loop intentionally left empty: runECSql handles its own logic and exit condition
                         }
+                        break;
+                    case "MCP":
+                        await McpServerHost.run(file, db);
                         break;
                     case "Sqlite":
                         console.log("Sqlite operation selected.");

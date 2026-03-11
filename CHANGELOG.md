@@ -1,3 +1,6 @@
+# 1.5.0 (2026-03-11)
+- Added MCP endpoint support.
+
 # 1.4.1 (2026-03-11)
 - Update to iTwin 5.7.1
 
