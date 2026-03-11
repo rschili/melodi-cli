@@ -1,7 +1,7 @@
 import { select } from "@clack/prompts";
 import { IModelHost } from "@itwin/core-backend";
 import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-authoring";
-import { ITwinsAccessClient } from "@itwin/itwins-client";
+import { ITwinsClient } from "@itwin/itwins-client";
 import { NodeCliAuthorizationClient } from "@itwin/node-cli-authorization";
 import { AzureClientStorage, BlockBlobClientWrapperFactory } from "@itwin/object-storage-azure";
 import { StrategyClientStorage } from "@itwin/object-storage-core";
@@ -26,7 +26,7 @@ export class EnvironmentManager {
     private _currentEnvironment: Environment = Environment.PROD;
     private _authClient?: NodeCliAuthorizationClient;
     private _iModelsClient?: IModelsClient;
-    private _iTwinsClient?: ITwinsAccessClient;
+    private _iTwinsClient?: ITwinsClient;
     private _isSignedIn: boolean = false;
     private _isStartedUp: boolean = false;
 
@@ -155,9 +155,9 @@ export class EnvironmentManager {
         return this._iModelsClient;
     }
 
-    public get iTwinsClient(): ITwinsAccessClient {
+    public get iTwinsClient(): ITwinsClient {
         if (!this._iTwinsClient) {
-            this._iTwinsClient = new ITwinsAccessClient(this._currentEnvironment === Environment.QA ? "https://qa-api.bentley.com/itwins" : undefined);
+            this._iTwinsClient = new ITwinsClient(this._currentEnvironment === Environment.QA ? "https://qa-api.bentley.com/itwins" : undefined);
         }
         return this._iTwinsClient;
     }

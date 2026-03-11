@@ -1,3 +1,6 @@
+# 1.4.1 (2026-03-11)
+- Update to iTwin 5.7.1
+
 # 1.4.0 (2025-08-31)
 - Remove local workspace folders and use a global folder instead
 - Streamline File opening, selecting a DB type is no longer needed

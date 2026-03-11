@@ -1,6 +1,6 @@
 import { Context, WorkspaceFile } from "../Context";
 import { log, select, text, isCancel, tasks, Option, spinner, confirm } from "@clack/prompts";
-import { ITwin, ITwinSubClass } from "@itwin/itwins-client";
+import type { ITwinMinimal } from "@itwin/itwins-client";
 import chalk from "chalk";
 import { generateColorizerMap, logError } from "../ConsoleHelper";
 import { Guid } from "@itwin/core-bentley";
@@ -101,7 +101,7 @@ export class NewFile {
         }
 
         let token: string = "";
-        let iTwins: ITwin[] = [];
+        let iTwins: ITwinMinimal[] = [];
         await tasks([
             {
             title: `Setting up environment to ${environment.toString()}`,
@@ -121,21 +121,21 @@ export class NewFile {
             {
                 title: "Detecting available iTwins...",
                 task: async () => {
-                    const iTwinsResponse = await envManager.iTwinsClient.queryAsync(token);
+                    const iTwinsResponse = await envManager.iTwinsClient.getRecentUsedITwins(token);
                     if (iTwinsResponse.status !== 200) {
                         throw new Error(`Failed to fetch iTwins: ${iTwinsResponse.error?.message ?? "Unknown error"}`);
                         }
 
-                    iTwins = iTwinsResponse.data ?? [];
+                    iTwins = iTwinsResponse.data?.iTwins ?? [];
                     return `Found ${iTwins.length} available iTwins.`;
                 }
             }
         ]);
 
-        const subClasses = iTwins.map(iTwin => iTwin.subClass ?? ITwinSubClass.Project);
+        const subClasses = iTwins.map(iTwin => iTwin.subClass ?? "Project");
         const colorizerMap = generateColorizerMap(subClasses);
 
-        const iTwinChoices: Option<ITwin>[] = iTwins.map(iTwin => {
+        const iTwinChoices: Option<ITwinMinimal>[] = iTwins.map(iTwin => {
             const subClass = iTwin.subClass;
             let colorizedSubClass = '';
             if(subClass !== undefined) {
@@ -149,7 +149,7 @@ export class NewFile {
                 value: iTwin
             }});
 
-        const thingToPull = await select<ITwin | "iModel" | "iTwin">({
+        const thingToPull = await select<ITwinMinimal | "iModel" | "iTwin">({
             message: 'Select an iTwin',
             options: [
                 { label: "Pull by iModel ID", value: "iModel" },
@@ -164,8 +164,8 @@ export class NewFile {
             return; // User cancelled the prompt
         }
 
-        let iTwinOrIModelId: string | undefined = undefined;
-        let iModelId: string | undefined = undefined;
+        let iTwinOrIModelId: string | undefined;
+        let iModelId: string | undefined;
         if (thingToPull === "iModel" || thingToPull === "iTwin") {
             // in case of iTwin or iModel we need to ask for the ID
             const unverifiedId = await text({ message: "Please provide the ID:"});
@@ -185,7 +185,8 @@ export class NewFile {
         }
 
         if( thingToPull === "iModel") {
-            iModelId = iTwinOrIModelId;
+            // eslint-disable-next-line no-useless-assignment -- TODO: direct iModel download not yet implemented
+            iModelId = iTwinOrIModelId!;
         } else {
             // If the user selected iTwin or provided an ITWin ID, so we list the imodels for that
             const client = envManager.iModelsClient;

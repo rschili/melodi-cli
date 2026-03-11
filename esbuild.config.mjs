@@ -7,7 +7,9 @@ await build({
   platform: "node",
   format: "esm",
   outdir: "dist",
-  plugins: [nodeExternalsPlugin()],
+  plugins: [nodeExternalsPlugin({
+    allowList: ["@itwin/itwins-client"],
+  })],
   sourcemap: true,
   target: "node22",
   outExtension: { ".js": ".mjs" },

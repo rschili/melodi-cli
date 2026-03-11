@@ -71,7 +71,7 @@ export class Changesets {
         try {
             return ChangesetListSchema.parse(JSON.parse(content));
         } catch (error) {
-            throw new Error(`Failed to parse changeset list from file ${changesetListFile}: ${error}`);
+            throw new Error(`Failed to parse changeset list from file ${changesetListFile}: ${error}`, { cause: error });
         }
     }
 

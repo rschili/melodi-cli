@@ -141,11 +141,11 @@ export class DbEditor {
             }
         await saveCommandHistory(ctx);
 
-        let rows: unknown[] = [];
-        let metadata: QueryPropertyMetaData[] = [];
+        let rows: unknown[];
+        let metadata: QueryPropertyMetaData[];
         const classIdCache: Record<string, string> = {};
         const startTicks = performance.now();
-        let queryDuration = 0;
+        let queryDuration: number;
         try {
             const reader = db.createQueryReader(ecsql, undefined, queryOptions.getOptions());
             rows = await reader.toArray();
