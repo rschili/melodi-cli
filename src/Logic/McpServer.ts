@@ -1,15 +1,31 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
-import { log } from "@clack/prompts";
+import { log, text, isCancel } from "@clack/prompts";
 import chalk from "chalk";
 import { z } from "zod/v4";
-import { QueryOptionsBuilder, QueryRowFormat } from "@itwin/core-common";
 import { UnifiedDb } from "../UnifiedDb";
 import { WorkspaceFile } from "../Context";
+import { executeAndPrintQuery } from "./QueryRunner";
+import ecsqlGuide from "./ecsql-guide.md";
 
 export class McpServerHost {
+    private static queryInProgress = false;
+
+    private static readonly DEFAULT_PORT = 30591; // "3C5Q1", ECSql in leet
+
     public static async run(file: WorkspaceFile, db: UnifiedDb): Promise<void> {
+        const portInput = await text({
+            message: "Port for MCP server",
+            initialValue: String(this.DEFAULT_PORT),
+            validate: (value) => {
+                const n = Number(value);
+                if (!Number.isInteger(n) || n < 1 || n > 65535) return "Enter a valid port (1-65535)";
+            },
+        });
+        if (isCancel(portInput)) return;
+        const chosenPort = Number(portInput);
+
         const mcp = new McpServer({
             name: "melodi",
             version: "1.0.0",
@@ -54,7 +70,7 @@ export class McpServerHost {
         });
 
         const port = await new Promise<number>((resolve, reject) => {
-            httpServer.listen(0, "127.0.0.1", () => {
+            httpServer.listen(chosenPort, "127.0.0.1", () => {
                 const addr = httpServer.address();
                 if (addr && typeof addr === "object") {
                     resolve(addr.port);
@@ -92,13 +108,12 @@ export class McpServerHost {
         mcp.registerTool(
             "get_imodel_query_guide",
             {
-                description: "Returns comprehensive instructions on how to write ECSql queries for the connected iModel, plus a compact representation of the available schemas, classes, and properties. Call this first before writing any queries.",
+                description: "Returns instructions on how to write ECSql queries for iModels, including available standard schemas, classes, and syntax notes. Call this first before writing any queries.",
             },
             async () => {
                 log.info(`${chalk.dim(new Date().toLocaleTimeString())} Tool: ${chalk.cyan("get_imodel_query_guide")}`);
-                // TODO: Return a comprehensive ECSql guide with syntax, examples, and common patterns
                 return {
-                    content: [{ type: "text" as const, text: "ECSql guide placeholder. For now, you may run 'select * from bis.Element LIMIT 5'." }],
+                    content: [{ type: "text" as const, text: ecsqlGuide }],
                 };
             }
         );
@@ -106,52 +121,33 @@ export class McpServerHost {
         mcp.registerTool(
             "query_imodel",
             {
-                description: "Execute an ECSql query against the open iModel and return results as JSON. Results are limited to 100 rows.",
+                description: "Execute an ECSql query against the open iModel. Results are printed to the user's console as a formatted table. Returns a summary with row count and execution time. Only one query can run at a time.",
                 inputSchema: { query: z.string().describe("The ECSql query to execute") },
             },
             async ({ query }) => {
                 log.info(`${chalk.dim(new Date().toLocaleTimeString())} Tool: ${chalk.cyan("query_imodel")} ${chalk.dim(query)}`);
-                try {
-                    const queryOptions = new QueryOptionsBuilder();
-                    queryOptions.setRowFormat(QueryRowFormat.UseECSqlPropertyIndexes);
-                    queryOptions.setLimit({ count: 101 });
-                    queryOptions.setAbbreviateBlobs(true);
 
-                    const reader = db.createQueryReader(query, undefined, queryOptions.getOptions());
-                    const rows = await reader.toArray();
-                    const metadata = await reader.getMetaData();
-
-                    if (rows.length === 0) {
-                        log.info(`${chalk.dim(new Date().toLocaleTimeString())} Query returned ${chalk.yellow("0")} rows.`);
-                        return { content: [{ type: "text" as const, text: "No rows returned." }] };
-                    }
-
-                    const truncated = rows.length > 100;
-                    const resultRows = truncated ? rows.slice(0, 100) : rows;
-                    log.info(`${chalk.dim(new Date().toLocaleTimeString())} Query returned ${chalk.yellow(String(resultRows.length))} rows${truncated ? " (truncated)" : ""}.`);
-
-                    // Build JSON objects using indexes from metadata (matches DbEditor pattern)
-                    const jsonRows = resultRows.map(row => {
-                        const obj: Record<string, unknown> = {};
-                        const rowArray = row as unknown[];
-                        for (let i = 0; i < metadata.length; i++) {
-                            obj[metadata[i].name] = rowArray[i] ?? null;
-                        }
-                        return obj;
-                    });
-
-                    const result = {
-                        columns: metadata.map(col => ({ name: col.name, type: col.extendedType ?? col.typeName })),
-                        rows: jsonRows,
-                        rowCount: jsonRows.length,
-                        truncated,
+                if (this.queryInProgress) {
+                    return {
+                        content: [{ type: "text" as const, text: "A query is already in progress. Please wait for it to complete before running another." }],
+                        isError: true,
                     };
+                }
 
-                    return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+                this.queryInProgress = true;
+                try {
+                    const result = await executeAndPrintQuery(db, query);
+                    const durationStr = result.durationMs < 1000
+                        ? `${result.durationMs.toFixed()} ms`
+                        : `${(result.durationMs / 1000).toFixed(2)} s`;
+                    const summary = `Query completed: ${result.rowCount} row${result.rowCount !== 1 ? "s" : ""} printed to console in ${durationStr}.${result.truncated ? " Results were truncated to 100 rows." : ""}`;
+                    return { content: [{ type: "text" as const, text: summary }] };
                 } catch (err: unknown) {
                     const message = err instanceof Error ? err.message : String(err);
                     log.warn(`Query failed: ${message}`);
                     return { content: [{ type: "text" as const, text: `Query failed: ${message}` }], isError: true };
+                } finally {
+                    this.queryInProgress = false;
                 }
             }
         );

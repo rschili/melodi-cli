@@ -1,3 +1,6 @@
+# 1.6.0 (2026-03-12)
+- Made the MCP print results instead of returning them. Added ECSql guide.
+
 # 1.5.0 (2026-03-11)
 - Added MCP endpoint support.
 
