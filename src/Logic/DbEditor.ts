@@ -9,6 +9,7 @@ import { SchemaEditor } from "./SchemaEditor";
 import { DbSettings } from "./DbSettings";
 import { McpServerHost } from "./McpServer";
 import { executeAndPrintQuery } from "./QueryRunner";
+import { ChangesetEditor } from "./Changesets";
 
 export class DbEditor {
     public static async run(ctx: Context, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
@@ -23,8 +24,6 @@ export class DbEditor {
                 options: [
                 ...(db.supportsECSql ? [{ label: "ECSql", value: "ECSql" }] : []),
                 ...(db.supportsECSql ? [{ label: "Host MCP (Http)", value: "MCP" }] : []),
-                /*{ label: "Sqlite", value: "Sqlite" },*/
-                /*{ label: "Check", value: "Check" },*/
                 ...(db.supportsSchemas ? [{ label: "Schemas", value: "Schemas" }] : []),
                 ...(db.supportsChangesets ? [{ label: "Changesets", value: "Changesets" }] : []),
                 { label: `Settings (Experimental features enabled: ${experimentalEnabled ? chalk.greenBright('true') : chalk.redBright('false')})`, value: "Settings" },
@@ -49,19 +48,11 @@ export class DbEditor {
                     case "MCP":
                         await McpServerHost.run(file, db);
                         break;
-                    case "Sqlite":
-                        console.log("Sqlite operation selected.");
-                        // Add Sqlite operation logic here
-                        break;
-                    case "Stats":
-                        console.log("Stats operation selected.");
-                        // Add Stats operation logic here
-                        break;
                     case "Schemas":
                         await SchemaEditor.run(ctx, file, db);
                         break;
                     case "Changesets":
-                        console.log("Changesets operation selected.");
+                        await ChangesetEditor.run(ctx, file, db);
                         break;
                     case "Settings":
                         await DbSettings.run(db);
@@ -113,8 +104,8 @@ export class DbEditor {
 
         const newLength = history.length;
         if (newLength > 10) {
-            ctx.commandCache!.ecsqlHistory = history.slice(10);
-            }
+            ctx.commandCache!.ecsqlHistory = history.slice(-10);
+        }
         await saveCommandHistory(ctx);
 
         try {

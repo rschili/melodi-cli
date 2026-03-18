@@ -88,7 +88,7 @@ Next TODO:
 - [x] Pull Changesets
 - [ ] Remove local working directory use global workspace instead
 - [ ] Remove database API selection step, use a Unified DB approach and auto selection
-- [ ] Apply Changesets
+- [x] Apply Changesets
 - [ ] Named Versions
 - [ ] Sqlite queries
 - [ ] Schema Management / Schema Import

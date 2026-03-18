@@ -191,7 +191,8 @@ export async function formatValue(
     }
 
     if (Array.isArray(value)) {
-        return { value: `[${value.map((v) => formatValue(v, colInfo, db, classIdCache)).join(", ")}]` };
+        const formatted = await Promise.all(value.map((v) => formatValue(v, colInfo, db, classIdCache)));
+        return { value: `[${formatted.map((f) => f.value).join(", ")}]` };
     }
 
     return { value: JSON.stringify(value) };

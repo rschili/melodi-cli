@@ -2,13 +2,15 @@ import { QueryOptionsBuilder, QueryRowFormat } from "@itwin/core-common";
 import chalk from "chalk";
 import semver from "semver";
 import { table } from 'table';
-import { formatWarning } from "../ConsoleHelper";
-import { loadSchemaInventory } from "../GithubBisSchemasHelper";
+import { formatWarning, logError } from "../ConsoleHelper";
+import { GithubBisSchemasRootUrl, loadSchemaInventory } from "../GithubBisSchemasHelper";
 import { UnifiedDb } from "../UnifiedDb";
 import { getFileContextFolderPath, Context, WorkspaceFile } from "../Context";
-import { log, select, isCancel } from "@clack/prompts"
+import { log, select, isCancel, spinner, multiselect, confirm } from "@clack/prompts"
 import path from "node:path";
 import { mkdirSync } from "node:fs";
+import { IModelDb, ECDb } from "@itwin/core-backend";
+import axios from "axios";
 
 type SchemaInfo = {
     name: string;
@@ -138,6 +140,138 @@ export class SchemaEditor {
 
             await db.dumpSchemas(dumpPath);
             return;
+        }
+
+        if (schemaOption === "__import__") {
+            await this.importSingleSchema(db, schemaInfoMap);
+            return;
+        }
+
+        if (schemaOption === "__import_multiple__") {
+            await this.importMultipleSchemas(db, schemaInfoMap);
+            return;
+        }
+    }
+
+    private static async importSingleSchema(db: UnifiedDb, schemaInfoMap: Record<string, SchemaInfo>): Promise<void> {
+        // Build options: schemas not in DB, or schemas with available updates
+        const importable = Object.values(schemaInfoMap).filter(s => s.path && s.latestVersion);
+        if (importable.length === 0) {
+            log.warn("No schemas available for import from the published inventory.");
+            return;
+        }
+
+        const options = importable.map(s => {
+            const status = s.version
+                ? (s.latestVersion && semver.gt(s.latestVersion, s.version) ? chalk.yellow("update") : chalk.green("current"))
+                : chalk.cyan("new");
+            return {
+                label: `${s.name} ${s.latestVersion?.toString() ?? "?"} [${status}]`,
+                value: s,
+            };
+        });
+
+        const selected = await select({
+            message: "Select a schema to import",
+            options: [...options, { label: "(Back)", value: undefined }],
+            maxItems: 20,
+        });
+
+        if (isCancel(selected) || !selected)
+            return;
+
+        const schema = selected as SchemaInfo;
+        await this.downloadAndImportSchemas(db, [schema]);
+    }
+
+    private static async importMultipleSchemas(db: UnifiedDb, schemaInfoMap: Record<string, SchemaInfo>): Promise<void> {
+        const importable = Object.values(schemaInfoMap).filter(s => s.path && s.latestVersion);
+        if (importable.length === 0) {
+            log.warn("No schemas available for import from the published inventory.");
+            return;
+        }
+
+        const options = importable.map(s => {
+            const status = s.version
+                ? (s.latestVersion && semver.gt(s.latestVersion, s.version) ? chalk.yellow("update") : chalk.green("current"))
+                : chalk.cyan("new");
+            return {
+                label: `${s.name} ${s.latestVersion?.toString() ?? "?"} [${status}]`,
+                value: s,
+            };
+        });
+
+        const selected = await multiselect({
+            message: "Select schemas to import (space to toggle, enter to confirm)",
+            options,
+        });
+
+        if (isCancel(selected) || selected.length === 0)
+            return;
+
+        await this.downloadAndImportSchemas(db, selected as SchemaInfo[]);
+    }
+
+    private static async downloadAndImportSchemas(db: UnifiedDb, schemas: SchemaInfo[]): Promise<void> {
+        if (db.isReadOnly) {
+            log.error("Cannot import schemas - the database is open in read-only mode.");
+            return;
+        }
+
+        const proceed = await confirm({
+            message: `Import ${schemas.length} schema(s): ${schemas.map(s => s.name).join(", ")}?`,
+            initialValue: true,
+        });
+        if (isCancel(proceed) || !proceed)
+            return;
+
+        const loader = spinner();
+        loader.start("Downloading schema XML files from GitHub...");
+        try {
+            const schemaXmls: string[] = [];
+            for (const schema of schemas) {
+                if (!schema.path) {
+                    log.warn(`Schema ${schema.name} has no download path, skipping.`);
+                    continue;
+                }
+                const schemaUrl = new URL(schema.path.replace(/\\/g, "/"), GithubBisSchemasRootUrl);
+                const response = await axios.get(schemaUrl.href, { responseType: "text", validateStatus: (s) => s === 200 });
+                schemaXmls.push(response.data);
+            }
+
+            if (schemaXmls.length === 0) {
+                loader.stop("No schemas to import.");
+                return;
+            }
+
+            loader.message("Importing schemas into database...");
+            const innerDb = db.innerDb;
+            if (innerDb instanceof IModelDb) {
+                await innerDb.importSchemaStrings(schemaXmls);
+            } else if (innerDb instanceof ECDb) {
+                // ECDb.importSchema takes a file path, so we need to write temp files
+                const os = await import("node:os");
+                const fs = await import("node:fs/promises");
+                const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "melodi-schema-"));
+                try {
+                    for (let i = 0; i < schemaXmls.length; i++) {
+                        const tmpFile = path.join(tmpDir, `schema_${i}.ecschema.xml`);
+                        await fs.writeFile(tmpFile, schemaXmls[i], "utf-8");
+                        innerDb.importSchema(tmpFile);
+                    }
+                } finally {
+                    await fs.rm(tmpDir, { recursive: true, force: true });
+                }
+            } else {
+                loader.stop("Import failed.");
+                log.error("Schema import is not supported for this database type.");
+                return;
+            }
+
+            loader.stop(`Successfully imported ${schemaXmls.length} schema(s).`);
+        } catch (error: unknown) {
+            loader.stop("Schema import failed.");
+            logError(error);
         }
     }
 }
