@@ -1,41 +1,31 @@
 import path from "path";
-import { getFileContextFolderPath, Context, WorkspaceFile } from "../Context";
+import { Context, WorkspaceFile } from "../Context";
 import { isCancel, spinner, text } from "@clack/prompts";
 import fs from "node:fs/promises";
 import * as fsSync from 'fs';
+import { getBackupPaths, getDefaultBackupName, validateBackupTarget } from "./BackupOps";
 
 export class Backup {
     public static async run(ctx: Context, file: WorkspaceFile): Promise<void> {
-        const absolutePath = path.join(ctx.folders.rootDir, file.relativePath);
-        const contextDirPath = getFileContextFolderPath(ctx.folders.rootDir, file.relativePath);
-        const ext = path.extname(file.relativePath);
-        const relativePathWithoutExt = file.relativePath.slice(0, -ext.length);
-
         const targetName = await text({
             message: "Enter a name for the backup (without extension):",
-            initialValue: relativePathWithoutExt + "_backup"
+            initialValue: getDefaultBackupName(file),
         });
         if (isCancel(targetName)) {
             return; // User cancelled the prompt
         }
-        let targetWithExt = targetName.trim();
-        if (!targetWithExt.endsWith(ext)) {
-            targetWithExt += ext;
-        }
-        const targetPath = path.join(ctx.folders.rootDir, targetWithExt);
-        const targetContextDirPath = getFileContextFolderPath(ctx.folders.rootDir, targetWithExt);
 
-        const targetExists = fsSync.existsSync(targetPath);
-        const contextDirExists = fsSync.existsSync(targetContextDirPath);
-        if (targetExists || contextDirExists) {
-            console.log("Backup file or its context directory already exists. Please choose a different name.");
+        const paths = getBackupPaths(ctx, file, targetName);
+        const validation = validateBackupTarget(paths);
+        if (!validation.valid) {
+            console.log(validation.reason);
             await Backup.run(ctx, file);
             return;
         }
 
-        await this.copyFile(absolutePath, targetPath);
-        if (fsSync.existsSync(contextDirPath)) {
-            await this.copyDirectoryRecursive(contextDirPath, targetContextDirPath);
+        await this.copyFile(paths.sourceFilePath, paths.targetFilePath);
+        if (fsSync.existsSync(paths.sourceContextDirPath)) {
+            await this.copyDirectoryRecursive(paths.sourceContextDirPath, paths.targetContextDirPath);
         }
     }
 

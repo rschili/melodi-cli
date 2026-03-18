@@ -1,13 +1,13 @@
-import { detectFiles, SchemaVersion, Context, WorkspaceFile } from "../Context";
+import { detectFiles, Context, WorkspaceFile } from "../Context";
 import { NewFile } from "./NewFile";
-import chalk from "chalk";
-import { printError, timeSpanToString } from "../ConsoleHelper";
+import { printError } from "../ConsoleHelper";
 import { Logger } from "../Logger";
 import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
 import { openBriefcaseDb, openECDb, openSnapshotDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb";
 import path from "path";
 import { DbEditor } from "./DbEditor";
 import { readIModelConfig } from "../IModelConfig";
+import { getFileDescription, padFileChoiceLabels } from "./FileSelectorOps";
 
 export class FileSelector {
 
@@ -45,7 +45,7 @@ export class FileSelector {
         if(ctx.files !== undefined) {
             fileChoices.push(...ctx.files!.map(file => ({
                 label: file.relativePath, 
-                hint: FileSelector.getFileDescription(file),
+                hint: getFileDescription(file),
                 value: file,})));
 
             fileChoices.sort((a, b) => {
@@ -53,17 +53,7 @@ export class FileSelector {
             });
         }
 
-        const longestFileChoiceNameLength = fileChoices.reduce((max, choice) => {
-            return Math.max(max, choice.label!.length);
-        }, 0);
-        const lengthBeforeLastMod = longestFileChoiceNameLength + 5;
-        const now = Date.now();
-        for (const choice of fileChoices) {
-            // Pad the name to align descriptions
-            const lastModTimeSpan = now - choice.value.lastTouched.getTime();
-            const timeSpanString = timeSpanToString(lastModTimeSpan);
-            choice.label = choice.label!.padEnd(lengthBeforeLastMod, ' ') + (timeSpanString ? `(${timeSpanString} ago)` : '');
-        }
+        padFileChoiceLabels(fileChoices);
 
 
         const createNewValue = "__createNew__";
@@ -113,35 +103,6 @@ export class FileSelector {
         }
 
         return true; // re-run the loop after file actions
-    }
-
-    static getFileDescription(file: WorkspaceFile): string {
-        const descriptions: string[] = [];
-        if(file.bisCoreVersion !== undefined) {
-            descriptions.push(file.hasITwinId ? chalk.green("Briefcase") : chalk.yellow("Standalone"));
-        }
-
-        if(file.ecDbVersion !== undefined) {
-            descriptions.push(`ECDb ${chalk.white(FileSelector.getSchemaVersionString(file.ecDbVersion))}`);
-        }
-
-        if(file.bisCoreVersion !== undefined) {
-            descriptions.push(`BisCore ${chalk.white(file.bisCoreVersion.toString())}`);
-            if(file.elements !== undefined) {
-                descriptions.push(`Elements: ${chalk.white(file.elements.toLocaleString())}`);
-            }
-        }
-
-        if(file.parentChangeSetId !== undefined) {
-            descriptions.push(`ChangeSet: ${chalk.white(file.parentChangeSetId)}`);
-        }
-
-        
-        return descriptions.join(" ");
-    }
-
-    static getSchemaVersionString(version: SchemaVersion): string {
-        return `${version.major}.${version.minor}.${version.sub1}.${version.sub2}`;
     }
 
     static async openDb(ctx: Context, file: WorkspaceFile): Promise<UnifiedDb | symbol> {

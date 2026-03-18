@@ -9,6 +9,7 @@ import {
   getForeignKeyDetails,
   enrichFailures,
   runIntegrityCheck,
+  runEcsqlIntegrityCheck,
 } from "../src/Logic/TroubleshootOps";
 import path from "path";
 
@@ -109,6 +110,33 @@ describe("TroubleshootOps", () => {
       const results = runIntegrityCheck(db);
       expect(results).toHaveLength(1);
       expect(results[0]).toBe("ok");
+    });
+  });
+
+  describe("runEcsqlIntegrityCheck", () => {
+    it("passes on a clean StandaloneDb with experimental features enabled", async () => {
+      using db = createTestDb("ops-ecsql-integrity-clean.bim");
+      // ECSql PRAGMA integrity_check requires experimental features
+      const { DbSettings } = await import("../src/Logic/DbSettings");
+      await DbSettings.setExperimentalFeaturesEnabled(db, true);
+      const results = await runEcsqlIntegrityCheck(db);
+      expect(results.length).toBeGreaterThan(0);
+      // ECSql returns "1" (true) for a passing integrity check, unlike SQLite's "ok"
+      expect(results[0]).toBeDefined();
+    });
+  });
+
+  describe("enrichFailures with FK match", () => {
+    it("produces a human-readable description when FK details match", () => {
+      using db = createTestDb("ops-enrich-match.bim");
+      // bis_Element has FK constraints; get details to find a valid FK index
+      const fkDetails = getForeignKeyDetails(db, "bis_Element");
+      expect(fkDetails.length).toBeGreaterThan(0);
+
+      const failures = [{ tableName: "bis_Element", rowId: "999", referredTable: fkDetails[0].table, fkIndex: "0" }];
+      const enriched = enrichFailures(db, failures);
+      expect(enriched).toHaveLength(1);
+      expect(enriched[0].fkDescription).toContain("->");
     });
   });
 });

@@ -44,4 +44,36 @@ describe("DbSettings", () => {
     const enabled = await DbSettings.getExperimentalFeaturesEnabled(db);
     expect(typeof enabled).toBe("boolean");
   });
+
+  it("returns false for non-ECSql databases (SQLiteDb)", async () => {
+    const ecdb = new ECDb();
+    ecdb.createDb(path.join(getTestDir(), "settings-sqlite-guard.ecdb"));
+    using db = new UnifiedDb(ecdb);
+    // Monkey-patch to simulate a non-ECSql db
+    Object.defineProperty(db, "supportsECSql", { get: () => false, configurable: true });
+
+    const enabled = await DbSettings.getExperimentalFeaturesEnabled(db);
+    expect(enabled).toBe(false);
+  });
+
+  it("throws when setting experimental features on non-ECSql db", async () => {
+    const ecdb = new ECDb();
+    ecdb.createDb(path.join(getTestDir(), "settings-set-guard.ecdb"));
+    using db = new UnifiedDb(ecdb);
+    Object.defineProperty(db, "supportsECSql", { get: () => false, configurable: true });
+
+    await expect(DbSettings.setExperimentalFeaturesEnabled(db, true)).rejects.toThrow("Experimental features can only be set");
+  });
+
+  it("toggles experimental features on StandaloneDb", async () => {
+    const dbPath = path.join(getTestDir(), "settings-standalone-toggle.bim");
+    const imodel = StandaloneDb.createEmpty(dbPath, { rootSubject: { name: "Settings Toggle" } });
+    using db = new UnifiedDb(imodel);
+
+    await DbSettings.setExperimentalFeaturesEnabled(db, true);
+    expect(await DbSettings.getExperimentalFeaturesEnabled(db)).toBe(true);
+
+    await DbSettings.setExperimentalFeaturesEnabled(db, false);
+    expect(await DbSettings.getExperimentalFeaturesEnabled(db)).toBe(false);
+  });
 });

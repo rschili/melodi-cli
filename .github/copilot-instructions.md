@@ -77,4 +77,6 @@ Always build before manual testing. Tests run against source via Vitest (no comp
 - `StandaloneDb extends BriefcaseDb` in the iTwin.js hierarchy, so `instanceof BriefcaseDb` is true for StandaloneDb. Always check for StandaloneDb first when distinguishing.
 - `@clack/prompts` `isCancel()` returns true for user cancellation (Ctrl+C in prompts). Always check before using the value.
 - esbuild bundles everything into a single ESM file. The `ecsql-guide.md` is imported as a string via a custom loader.
+- File context folders are named using `_extras` from the file stem (for example `models/sample.bim` -> `models/sample_extras`).
+- `vitest.config.ts` is intentionally excluded in eslint config rather than included in tsconfig.
 - The `buildInfo.ts` file is auto-generated during prebuild - don't edit manually.

@@ -28,7 +28,7 @@ export class DbEditor {
                 ...(db.supportsECSql ? [{ label: "Host MCP (Http)", value: "MCP" }] : []),
                 ...(db.supportsSchemas ? [{ label: "Schemas", value: "Schemas" }] : []),
                 ...(db.supportsChangesets ? [{ label: "Changesets", value: "Changesets" }] : []),
-                ...(db.supportsChangesets ? [{ label: "Troubleshoot", value: "Troubleshoot", hint: "FK violations, integrity checks" }] : []),
+                { label: "Troubleshoot", value: "Troubleshoot", hint: "FK violations, integrity checks" },
                 { label: `Settings (Experimental features enabled: ${experimentalEnabled ? chalk.greenBright('true') : chalk.redBright('false')})`, value: "Settings" },
                 { label: "Close", value: "Close" }
                 ],
