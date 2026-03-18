@@ -15,6 +15,7 @@ import { CheckpointManager, ProgressStatus } from "@itwin/core-backend";
 import path from "path";
 import { ChangesetIdWithIndex } from "@itwin/core-common";
 import { Changesets } from "./Changesets";
+import { calculateOverallFileSize } from "./ChangesetOps";
 
 export class NewFile {
     public static async run(ctx: Context): Promise<void> {
@@ -333,7 +334,7 @@ export class NewFile {
         for await (const cs of changesets) {
             changesetsArray.push(cs);
         }
-        const size = Changesets.calculateOverallFileSize(changesetsArray);
+        const size = calculateOverallFileSize(changesetsArray);
         if(changesetsArray.length > 0) {
             const downloadChangesets = await confirm({
                 message: `Downloaded iModel has ${changesetsArray.length} changesets. Do you want to download them? (Total size to download: ${(size / (1024 * 1024)).toFixed(2)} MB)`,

@@ -1,5 +1,5 @@
 # Targets
-.PHONY: build test run ide
+.PHONY: build test cover run ide publish link unlink remove check-updates clean-workspace
 
 ide:
 	code .
@@ -10,6 +10,9 @@ build:
 
 test:
 	npx vitest run
+
+cover:
+	npx vitest run --coverage
 
 run:
 	npm run start

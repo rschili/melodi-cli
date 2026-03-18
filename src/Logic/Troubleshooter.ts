@@ -1,5 +1,4 @@
 import { BriefcaseDb, ProgressStatus } from "@itwin/core-backend";
-import { DbResult } from "@itwin/core-bentley";
 import { log, select, isCancel, spinner, confirm } from "@clack/prompts";
 import chalk from "chalk";
 import { table } from "table";
@@ -7,25 +6,7 @@ import { UnifiedDb } from "../UnifiedDb";
 import { Context, WorkspaceFile } from "../Context";
 import { logError } from "../ConsoleHelper";
 import { DbSettings } from "./DbSettings";
-
-const FK_VIOLATIONS_FLAG = "DebugAllowFkViolations";
-
-type ForeignKeyFailure = {
-    tableName: string;
-    rowId: string;
-    referredTable: string;
-    fkIndex: string;
-};
-
-type ForeignKeyDetail = {
-    id: number;
-    seq: number;
-    table: string;
-    from: string;
-    to: string;
-    onDelete: string;
-    onUpdate: string;
-};
+import { isFkFlagSet, setFkFlag, runForeignKeyCheck, enrichFailures, runIntegrityCheck, runEcsqlIntegrityCheck } from "./TroubleshootOps";
 
 /**
  * Interactive troubleshooter for diagnosing FK constraint violations during changeset application.
@@ -39,6 +20,8 @@ type ForeignKeyDetail = {
  *
  * This automates the workflow described in the checkpoint-v2-troubleshoot job (imodels-jobs)
  * so developers don't have to remember the steps each time.
+ *
+ * Pure logic lives in TroubleshootOps.ts; this class is the thin interactive shell.
  */
 export class Troubleshooter {
 
@@ -49,7 +32,7 @@ export class Troubleshooter {
         }
 
         while (true) {
-            const flagSet = this.isFkViolationsFlagSet(db);
+            const flagSet = isFkFlagSet(db);
             const flagLabel = flagSet
                 ? chalk.yellowBright("SET - FK violations will be skipped during pull")
                 : chalk.dim("not set");
@@ -80,13 +63,13 @@ export class Troubleshooter {
                         await this.pullWithFkViolationsAllowed(ctx, db);
                         break;
                     case "fk-check":
-                        await this.runForeignKeyCheck(db);
+                        await this.displayForeignKeyCheck(db);
                         break;
                     case "integrity-check":
-                        await this.runSqliteIntegrityCheck(db);
+                        await this.displayIntegrityCheck(db);
                         break;
                     case "ecsql-integrity":
-                        await this.runEcsqlIntegrityCheck(db);
+                        await this.displayEcsqlIntegrityCheck(db);
                         break;
                 }
             } catch (error: unknown) {
@@ -95,27 +78,12 @@ export class Troubleshooter {
         }
     }
 
-    private static isFkViolationsFlagSet(db: UnifiedDb): boolean {
-        return db.withSqliteStatement("SELECT Val FROM be_Local WHERE Name = ?", (stmt) => {
-            stmt.bindString(1, FK_VIOLATIONS_FLAG);
-            return stmt.step() === DbResult.BE_SQLITE_ROW;
-        });
-    }
-
     private static async toggleFkFlag(db: UnifiedDb): Promise<void> {
-        const currentlySet = this.isFkViolationsFlagSet(db);
+        const currentlySet = isFkFlagSet(db);
+        setFkFlag(db, !currentlySet);
         if (currentlySet) {
-            db.withSqliteStatement("DELETE FROM be_Local WHERE Name = ?", (stmt) => {
-                stmt.bindString(1, FK_VIOLATIONS_FLAG);
-                stmt.step();
-            });
             log.success("DebugAllowFkViolations flag removed.");
         } else {
-            db.withSqliteStatement("INSERT OR REPLACE INTO be_Local (Name, Val) VALUES (?, ?)", (stmt) => {
-                stmt.bindString(1, FK_VIOLATIONS_FLAG);
-                stmt.bindString(2, "");
-                stmt.step();
-            });
             const briefcaseDb = db.innerDb as BriefcaseDb;
             briefcaseDb.saveChanges();
             log.success("DebugAllowFkViolations flag set. FK violations will be skipped during changeset merge.");
@@ -138,12 +106,8 @@ export class Troubleshooter {
             return;
 
         // Step 1: Set the flag
-        if (!this.isFkViolationsFlagSet(db)) {
-            db.withSqliteStatement("INSERT OR REPLACE INTO be_Local (Name, Val) VALUES (?, ?)", (stmt) => {
-                stmt.bindString(1, FK_VIOLATIONS_FLAG);
-                stmt.bindString(2, "");
-                stmt.step();
-            });
+        if (!isFkFlagSet(db)) {
+            setFkFlag(db, true);
             briefcaseDb.saveChanges();
             log.step("DebugAllowFkViolations flag set.");
         } else {
@@ -172,7 +136,7 @@ export class Troubleshooter {
 
         // Step 3: Run FK check automatically
         log.step("Running PRAGMA foreign_key_check...");
-        await this.runForeignKeyCheck(db);
+        await this.displayForeignKeyCheck(db);
 
         // Step 4: Ask about cleanup
         const removeFlag = await confirm({
@@ -180,30 +144,17 @@ export class Troubleshooter {
             initialValue: true,
         });
         if (!isCancel(removeFlag) && removeFlag) {
-            db.withSqliteStatement("DELETE FROM be_Local WHERE Name = ?", (stmt) => {
-                stmt.bindString(1, FK_VIOLATIONS_FLAG);
-                stmt.step();
-            });
+            setFkFlag(db, false);
             briefcaseDb.saveChanges();
             log.success("Flag removed.");
         }
     }
 
-    private static async runForeignKeyCheck(db: UnifiedDb): Promise<void> {
+    private static async displayForeignKeyCheck(db: UnifiedDb): Promise<void> {
         const loader = spinner();
         loader.start("Running PRAGMA foreign_key_check...");
 
-        const failures: ForeignKeyFailure[] = [];
-        db.withSqliteStatement("PRAGMA foreign_key_check", (stmt) => {
-            while (stmt.step() === DbResult.BE_SQLITE_ROW) {
-                failures.push({
-                    tableName: stmt.getValueString(0),
-                    rowId: stmt.getValueString(1),
-                    referredTable: stmt.getValueString(2),
-                    fkIndex: stmt.getValueString(3),
-                });
-            }
-        });
+        const failures = runForeignKeyCheck(db);
 
         if (failures.length === 0) {
             loader.stop("No foreign key violations found.");
@@ -212,54 +163,25 @@ export class Troubleshooter {
 
         loader.stop(`Found ${chalk.red(String(failures.length))} foreign key violation(s).`);
 
-        // Enrich with FK details per table
-        const tablesWithFailures = new Set(failures.map(f => f.tableName));
-        const fkDetailsMap = new Map<string, ForeignKeyDetail[]>();
-        for (const tableName of tablesWithFailures) {
-            const details: ForeignKeyDetail[] = [];
-            db.withSqliteStatement(`PRAGMA foreign_key_list(${tableName})`, (stmt) => {
-                while (stmt.step() === DbResult.BE_SQLITE_ROW) {
-                    details.push({
-                        id: stmt.getValueInteger(0),
-                        seq: stmt.getValueInteger(1),
-                        table: stmt.getValueString(2),
-                        from: stmt.getValueString(3),
-                        to: stmt.getValueString(4),
-                        onDelete: stmt.getValueString(5),
-                        onUpdate: stmt.getValueString(6),
-                    });
-                }
-            });
-            fkDetailsMap.set(tableName, details);
-        }
+        const enriched = enrichFailures(db, failures);
 
-        // Build output table
         const output: string[][] = [
             ["Table", "RowId", "Referred Table", "FK Column (from -> to)"],
         ];
-        for (const f of failures) {
-            const fkDetails = fkDetailsMap.get(f.tableName);
-            const fkIdx = parseInt(f.fkIndex);
-            const fk = fkDetails?.[fkIdx];
-            const fkDesc = fk ? `${fk.from} -> ${fk.table}.${fk.to}` : `FK index ${f.fkIndex}`;
-
-            output.push([f.tableName, f.rowId, f.referredTable, fkDesc]);
+        for (const f of enriched) {
+            output.push([f.tableName, f.rowId, f.referredTable, f.fkDescription]);
         }
 
         console.log(table(output));
-        log.info(`Total: ${failures.length} violation(s) across ${tablesWithFailures.size} table(s).`);
+        const tableCount = new Set(failures.map(f => f.tableName)).size;
+        log.info(`Total: ${failures.length} violation(s) across ${tableCount} table(s).`);
     }
 
-    private static async runSqliteIntegrityCheck(db: UnifiedDb): Promise<void> {
+    private static async displayIntegrityCheck(db: UnifiedDb): Promise<void> {
         const loader = spinner();
         loader.start("Running PRAGMA integrity_check...");
 
-        const results: string[] = [];
-        db.withSqliteStatement("PRAGMA integrity_check", (stmt) => {
-            while (stmt.step() === DbResult.BE_SQLITE_ROW) {
-                results.push(stmt.getValueString(0));
-            }
-        });
+        const results = runIntegrityCheck(db);
 
         loader.stop("Integrity check complete.");
 
@@ -276,7 +198,7 @@ export class Troubleshooter {
         }
     }
 
-    private static async runEcsqlIntegrityCheck(db: UnifiedDb): Promise<void> {
+    private static async displayEcsqlIntegrityCheck(db: UnifiedDb): Promise<void> {
         if (!db.supportsECSql) {
             log.error("ECSql integrity check requires an ECDb or IModelDb.");
             return;
@@ -297,8 +219,7 @@ export class Troubleshooter {
         loader.start("Running ECSql PRAGMA integrity_check (this may take a while)...");
 
         try {
-            const reader = db.createQueryReader("PRAGMA integrity_check");
-            const rows = await reader.toArray();
+            const rows = await runEcsqlIntegrityCheck(db);
 
             loader.stop("ECSql integrity check complete.");
 
@@ -309,8 +230,7 @@ export class Troubleshooter {
 
             const output: string[][] = [["Result"]];
             for (const row of rows.slice(0, 100)) {
-                const values = row as unknown[];
-                output.push([String(values[0] ?? "")]);
+                output.push([row]);
             }
             console.log(table(output));
 

@@ -2,7 +2,7 @@ import { QueryOptionsBuilder, QueryRowFormat } from "@itwin/core-common";
 import chalk from "chalk";
 import semver from "semver";
 import { table } from 'table';
-import { formatWarning, logError } from "../ConsoleHelper";
+import { logError } from "../ConsoleHelper";
 import { GithubBisSchemasRootUrl, loadSchemaInventory } from "../GithubBisSchemasHelper";
 import { UnifiedDb } from "../UnifiedDb";
 import { getFileContextFolderPath, Context, WorkspaceFile } from "../Context";
@@ -11,13 +11,7 @@ import path from "node:path";
 import { mkdirSync } from "node:fs";
 import { IModelDb, ECDb } from "@itwin/core-backend";
 import axios from "axios";
-
-type SchemaInfo = {
-    name: string;
-    version?: semver.SemVer;
-    latestVersion?: semver.SemVer;
-    path?: string;
-};
+import { buildSchemaInfoMap, buildSchemaTableRows, type SchemaInfo } from "./SchemaEditorOps";
 
 export class SchemaEditor {
 
@@ -41,77 +35,30 @@ export class SchemaEditor {
 
         const availableSchemas = await loadSchemaInventory(ctx.folders.cacheDir);
 
-        const schemaInfoMap: Record<string, SchemaInfo> = {};
-        for (const row of schemasInDb) {
-            const name = row[0];
-            const versionString = `${row[1]}.${row[2]}.${row[3]}`;
-            const version = semver.parse(versionString);
-            if (!version) {
-                console.log(formatWarning(`Schema ${row[0]} has an invalid version: ${row[1]}`));
-                continue;
-            }
+        const dbSchemaRows = schemasInDb.map(row => ({
+            name: row[0] as string,
+            versionMajor: row[1] as number,
+            versionWrite: row[2] as number,
+            versionMinor: row[3] as number,
+        }));
 
-            schemaInfoMap[name] = {
-                name,
-                version,
-            }
-        }
-
-        for (const [outerName, schemaGroup] of Object.entries(availableSchemas)) {
-            for (const schema of schemaGroup) {
-                if (!schema.released || !schema.path)
-                    continue; // Skip unreleased schemas
-                if (schema.name !== outerName) {
-                    console.log(formatWarning(`Schema name mismatch: expected ${outerName}, got ${schema.name}`));
-                    continue;
-                }
-                const cleanedVersion = stripLeadingZeros(schema.version);
-                const version = semver.parse(cleanedVersion);
-                if (!version) {
-                    console.log(formatWarning(`Schema ${schema.name} has an invalid version: ${schema.version}`));
-                    continue;
-                }
-
-                const existingSchema = schemaInfoMap[schema.name];
-                if (existingSchema) {
-                    if (!existingSchema.latestVersion || semver.lt(existingSchema.latestVersion, version)) {
-                        existingSchema.latestVersion = version;
-                        existingSchema.path = schema.path;
-                    }
-                } else {
-                    schemaInfoMap[schema.name] = {
-                        name: schema.name,
-                        latestVersion: version,
-                        path: schema.path,
-                    };
-                }
-            }
-        }
+        const schemaInfoMap = buildSchemaInfoMap(dbSchemaRows, availableSchemas);
+        const tableRows = buildSchemaTableRows(schemaInfoMap);
 
         const schemaTable: string[][] = [
             ["Name", "Current Version", "Latest published Version"],
         ];
-        for (const schema of Object.values(schemaInfoMap)) {
-            if(!schema.version) {
-                continue; // Skip schemas that are not in the database
+        for (const row of tableRows) {
+            let latestDisplay = "";
+            if (row.latestVersion) {
+                if (row.status === "up-to-date")
+                    latestDisplay = chalk.green(row.latestVersion + "\n(github)");
+                else if (row.status === "update-available")
+                    latestDisplay = chalk.yellowBright(row.latestVersion + "\n(github)");
+                else
+                    latestDisplay = chalk.magenta(row.latestVersion + "\n(github)");
             }
-
-            let latestVersion = "";
-            if(schema.latestVersion) {
-                if (semver.eq(schema.version, schema.latestVersion)) {
-                    latestVersion = chalk.green(schema.latestVersion.toString() + "\n(github)");
-                } else if (semver.lt(schema.version, schema.latestVersion)) {
-                    latestVersion = chalk.yellowBright(schema.latestVersion.toString() + "\n(github)");
-                } else {
-                    latestVersion = chalk.magenta(schema.latestVersion.toString() + "\n(github)");
-                }
-            }
-
-            schemaTable.push([
-                schema.name,
-                schema.version.toString(),
-                latestVersion,
-            ]);
+            schemaTable.push([row.name, row.currentVersion, latestDisplay]);
         }
         console.log(table(schemaTable));
         
@@ -275,7 +222,4 @@ export class SchemaEditor {
         }
     }
 }
-
-function stripLeadingZeros(str: string): string {
-    return str.replace(/(^|\.)0+(?=\d)/g, '$1');
 }

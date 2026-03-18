@@ -1,99 +1,32 @@
-import fs from "node:fs/promises";
-import path from "path";
-import { z } from "zod/v4";
-import { ContainingChanges, MinimalChangeset } from "@itwin/imodels-client-management";
-import { getFileContextFolderPath, Context, WorkspaceFile } from "../Context";
-import { DownloadedChangeset } from "@itwin/imodels-client-authoring";
+import { Context, WorkspaceFile } from "../Context";
 import { existsSync, mkdirSync } from "node:fs";
 import { BriefcaseDb, ProgressStatus } from "@itwin/core-backend";
 import { log, select, isCancel, spinner, text } from "@clack/prompts";
 import chalk from "chalk";
 import { UnifiedDb } from "../UnifiedDb";
 import { logError } from "../ConsoleHelper";
+import {
+    getChangesetsFolder,
+    downloadedChangesetsToChangesetList,
+    writeChangesetListToFile,
+} from "./ChangesetOps";
 
-
-export const ChangesetListSchema = z.array(z.object({
-    id: z.string(),
-    displayName: z.string(),
-    index: z.number(),
-    parentId: z.string(),
-    pushDateTime: z.string(),
-    containingChanges: z.enum(ContainingChanges),
-    fileSize: z.number(),
-    relativePath: z.string().optional(), // path relative to the 
-}));
-
-export type ChangesetList = z.infer<typeof ChangesetListSchema>;
+// Re-export types and schema for backward compatibility
+export { ChangesetListSchema, type ChangesetList } from "./ChangesetOps";
+export {
+    getChangesetsFolder,
+    getChangesetRelativePath,
+    calculateOverallFileSize,
+    downloadedChangesetsToChangesetList,
+    readChangesetListFromFile,
+    writeChangesetListToFile,
+} from "./ChangesetOps";
 
 export class Changesets {
-    public static getChangesetsFolder(ctx: Context, file: WorkspaceFile): string {
-        const contextFolder = getFileContextFolderPath(ctx.folders.rootDir, file.relativePath);
-        const changesetsDir = path.join(contextFolder, "changesets");
-        return changesetsDir;
-    }
-
-    public static getChangesetRelativePath(ctx: Context, file: WorkspaceFile, absolutePath: string): string {
-        const changesetsDir = this.getChangesetsFolder(ctx, file);
-        if (!absolutePath.startsWith(changesetsDir)) {
-            throw new Error(`Absolute path ${absolutePath} does not start with changesets directory ${changesetsDir}`);
-        }
-        const relativePath = path.relative(changesetsDir, absolutePath);
-        if (!relativePath) {
-            throw new Error(`Could not determine relative path for ${absolutePath} in changesets directory ${changesetsDir}`);
-        }
-        return relativePath;
-    }
-
-    public static calculateOverallFileSize(changesets: MinimalChangeset[]): number {
-        return changesets.reduce((total, changeset) => total + (changeset.fileSize || 0), 0);
-    }
-
-    public static downloadedChangesetsToChangesetList(ctx: Context, file: WorkspaceFile, downloadedChangesets: DownloadedChangeset[]): ChangesetList {
-        const list: ChangesetList = [];
-        for (const changeset of downloadedChangesets) {
-            const relativePath = this.getChangesetRelativePath(ctx, file, changeset.filePath);
-            list.push({
-                id: changeset.id,
-                displayName: changeset.displayName,
-                index: changeset.index,
-                parentId: changeset.parentId,
-                pushDateTime: changeset.pushDateTime,
-                containingChanges: changeset.containingChanges,
-                fileSize: changeset.fileSize,
-                relativePath: relativePath
-            });
-        }
-        return list;
-    }
-
-    public static async readChangesetListFromFile(ctx: Context, file: WorkspaceFile): Promise<ChangesetList> {
-        const changesetsDir = this.getChangesetsFolder(ctx, file);
-        const changesetListFile = path.join(changesetsDir, "changeset-list.json");
-        if (!existsSync(changesetListFile)) {
-            return [];
-        }
-        const content = await fs.readFile(changesetListFile, 'utf-8');
-        try {
-            return ChangesetListSchema.parse(JSON.parse(content));
-        } catch (error) {
-            throw new Error(`Failed to parse changeset list from file ${changesetListFile}: ${error}`, { cause: error });
-        }
-    }
-
-    public static async writeChangesetListToFile(ctx: Context, file: WorkspaceFile, changesetList: ChangesetList): Promise<void> {
-        const changesetsDir = this.getChangesetsFolder(ctx, file);
-        if (!existsSync(changesetsDir)) {
-            mkdirSync(changesetsDir, { recursive: true });
-        }
-        const changesetListFile = path.join(changesetsDir, "changeset-list.json");
-        await fs.writeFile(changesetListFile, JSON.stringify(changesetList, null, 2), 'utf-8');
-    }
-
     public static async downloadChangesets(ctx: Context, file: WorkspaceFile, iModelId: string): Promise<void> {
-        const changesetsDir = this.getChangesetsFolder(ctx, file);
-        if (!existsSync(changesetsDir)) {
+        const changesetsDir = getChangesetsFolder(ctx, file);
+        if (!existsSync(changesetsDir))
             mkdirSync(changesetsDir, { recursive: true });
-        }
 
         const loader = spinner();
         loader.start("Downloading changesets...");
@@ -104,8 +37,8 @@ export class Changesets {
                 targetDirectoryPath: changesetsDir
             });
 
-            const cacheList = Changesets.downloadedChangesetsToChangesetList(ctx, file, downloaded);
-            await Changesets.writeChangesetListToFile(ctx, file, cacheList);
+            const cacheList = downloadedChangesetsToChangesetList(ctx, file, downloaded);
+            await writeChangesetListToFile(ctx, file, cacheList);
             loader.stop(`Downloaded ${downloaded.length} changeset(s).`);
         } catch (error: unknown) {
             loader.stop("Changeset download failed.");
