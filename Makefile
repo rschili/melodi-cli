@@ -9,7 +9,7 @@ build:
 	chmod +x dist/index.mjs
 
 test:
-	npm run test
+	npx vitest run
 
 run:
 	npm run start

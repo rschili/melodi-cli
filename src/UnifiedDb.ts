@@ -121,7 +121,7 @@ export class UnifiedDb implements Disposable {
     }
 
     public get supportsChangesets(): boolean {
-        return this.db instanceof BriefcaseDb;
+        return this.db instanceof BriefcaseDb && !(this.db instanceof StandaloneDb);
     }
 
 
