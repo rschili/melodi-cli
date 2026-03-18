@@ -1,4 +1,5 @@
 import { QueryOptionsBuilder, QueryPropertyMetaData, QueryRowFormat } from "@itwin/core-common";
+import { DbResult } from "@itwin/core-bentley";
 import chalk from "chalk";
 import { ColumnUserConfig, table, TableUserConfig } from "table";
 import { formatWarning, resetChar } from "../ConsoleHelper";
@@ -255,4 +256,74 @@ function calculateWidth(cell: string): number {
         return cell.split("\n").reduce((max, line) => Math.max(max, line.length), 0);
     }
     return cell.length;
+}
+
+/**
+ * Executes a plain SQLite query via withSqliteStatement, prints results as a
+ * formatted table, and returns summary metadata.
+ */
+export function executeAndPrintSqliteQuery(db: UnifiedDb, sql: string): QueryResult {
+    const startTicks = performance.now();
+
+    const result = db.withSqliteStatement(sql, (stmt) => {
+        const rows: string[][] = [];
+        let colCount = 0;
+
+        while (stmt.step() === DbResult.BE_SQLITE_ROW) {
+            if (colCount === 0)
+                colCount = stmt.getColumnCount();
+            const row: string[] = [];
+            for (let i = 0; i < colCount; i++) {
+                if (stmt.isValueNull(i)) {
+                    row.push("");
+                } else {
+                    row.push(stmt.getValueString(i));
+                }
+            }
+            rows.push(row);
+            if (rows.length > MAX_ROWS)
+                break;
+        }
+        return { rows, colCount };
+    });
+
+    const { rows, colCount } = result;
+    const durationMs = performance.now() - startTicks;
+
+    if (rows.length === 0 || colCount === 0) {
+        console.log("No rows returned.");
+        return { rowCount: 0, durationMs, truncated: false };
+    }
+
+    const truncated = rows.length > MAX_ROWS;
+    const displayRows = truncated ? rows.slice(0, MAX_ROWS) : rows;
+
+    // Build header from column indices since SQLite doesn't give us column names through this API
+    const headerRow = Array.from({ length: colCount }, (_, i) => chalk.bold(`[${i}]`));
+    const output: string[][] = [headerRow, ...displayRows];
+
+    const formattedSql = emphasize.highlight("sql", sql).value;
+    output.unshift([formattedSql, ...Array(colCount - 1).fill("")]);
+
+    const widths = calculateColumnWidths(output, process.stdout.columns);
+    const columns: ColumnUserConfig[] = widths.map(w => ({ width: w, wrapWord: false }));
+
+    const config: TableUserConfig = {
+        columns,
+        spanningCells: [{ col: 0, row: 0, colSpan: colCount, alignment: "center" }],
+    };
+
+    console.log(table(output, config));
+
+    if (truncated) {
+        console.log(formatWarning(`More than ${MAX_ROWS} rows returned. Only the first ${MAX_ROWS} rows are displayed.`));
+    }
+
+    if (durationMs < 1000) {
+        console.log(`Executed in ${durationMs.toFixed()} ms.`);
+    } else {
+        console.log(`Executed in ${(durationMs / 1000).toFixed(2)} seconds.`);
+    }
+
+    return { rowCount: displayRows.length, durationMs, truncated };
 }

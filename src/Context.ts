@@ -13,6 +13,7 @@ import { UserConfig } from "./UserConfig";
 const CommandCacheSchema = z.object({
     melodiVersion: z.string(),
     ecsqlHistory: z.array(z.string()).optional(),
+    sqliteHistory: z.array(z.string()).optional(),
 });
 
 export type CommandCache = z.infer<typeof CommandCacheSchema>;

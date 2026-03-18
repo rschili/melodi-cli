@@ -1,3 +1,17 @@
+# 1.7.0 (2026-03-18)
+- Add SQLite query editor alongside ECSql in the DB editor
+- Add Troubleshooter for diagnosing FK constraint violations and integrity issues in BriefcaseDb
+- Add changeset operations: pull to latest, pull to specific changeset, show remote info
+- Add schema import from local files or GitHub downloads
+- Add "Pull by iModel ID" option for downloading iModels from Hub
+- Extend UnifiedDb with SQLite statement wrapper to avoid bypassing the abstraction layer
+- Fix async array formatting in query results (use Promise.all)
+- Fix command history pruning (was growing unbounded)
+- Fix spinner display during changeset downloads
+- Remove dead code paths in DbEditor
+- Update dependencies
+- Remove redundant @typescript-eslint/eslint-plugin and @typescript-eslint/parser devDependencies
+
 # 1.6.0 (2026-03-12)
 - Made the MCP print results instead of returning them. Added ECSql guide.
 

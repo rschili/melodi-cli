@@ -90,9 +90,9 @@ Next TODO:
 - [ ] Remove database API selection step, use a Unified DB approach and auto selection
 - [x] Apply Changesets
 - [ ] Named Versions
-- [ ] Sqlite queries
-- [ ] Schema Management / Schema Import
-- [ ] Troubleshooter / integrity checker
+- [x] Sqlite queries
+- [x] Schema Management / Schema Import
+- [x] Troubleshooter / integrity checker
 - [ ] Sync existing Briefcase with online iModels
 - [ ] Insert/Update/Delete
 - [ ] Transactions

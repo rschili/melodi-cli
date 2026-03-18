@@ -1,5 +1,5 @@
 import { select, isCancel, log } from "@clack/prompts"
-import { BriefcaseDb, ECDb, ECDbOpenMode, ECSqlStatement, IModelDb, SnapshotDb, SQLiteDb, StandaloneDb } from "@itwin/core-backend";
+import { BriefcaseDb, ECDb, ECDbOpenMode, ECSqlStatement, IModelDb, SnapshotDb, SQLiteDb, SqliteStatement, StandaloneDb } from "@itwin/core-backend";
 import { ECSqlReader, QueryBinder, QueryOptions } from "@itwin/core-common";
 import { OpenMode } from "@itwin/core-bentley";
 import { IModelConfig } from "./IModelConfig";
@@ -101,6 +101,23 @@ export class UnifiedDb implements Disposable {
             return;
         }
         throw new Error("Dumping schemas is not implemented by this DB type (native addon wants at least DgnDb for this). Try StandaloneDb.");
+    }
+
+    public get supportsSqlite(): boolean {
+        return true; // All supported DB types have withSqliteStatement
+    }
+
+    public withSqliteStatement<T>(sql: string, callback: (stmt: SqliteStatement) => T, logErrors?: boolean): T {
+        if (this.db instanceof IModelDb) {
+            return this.db.withSqliteStatement(sql, callback, logErrors);
+        }
+        if (this.db instanceof ECDb) {
+            return this.db.withSqliteStatement(sql, callback, logErrors);
+        }
+        if (this.db instanceof SQLiteDb) {
+            return this.db.withSqliteStatement(sql, callback);
+        }
+        throw new Error("SQLite statements are not supported by this DB type.");
     }
 
     public get supportsChangesets(): boolean {
