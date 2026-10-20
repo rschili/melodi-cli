@@ -2,16 +2,17 @@ import { QueryOptionsBuilder, QueryRowFormat } from "@itwin/core-common";
 import chalk from "chalk";
 import semver from "semver";
 import { table } from 'table';
-import { logError } from "../ConsoleHelper";
+import { formatPath, logError } from "../ConsoleHelper";
 import { GithubBisSchemasRootUrl, loadSchemaInventory } from "../GithubBisSchemasHelper";
 import { UnifiedDb } from "../UnifiedDb";
 import { getFileContextFolderPath, Context, WorkspaceFile } from "../Context";
 import { log, select, isCancel, spinner, multiselect, confirm } from "@clack/prompts"
 import path from "node:path";
-import { mkdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { IModelDb, ECDb } from "@itwin/core-backend";
 import axios from "axios";
 import { buildSchemaInfoMap, buildSchemaTableRows, type SchemaInfo } from "./SchemaEditorOps";
+import { getSchemaDumpFolderName, schemaDumpManifestFileName } from "./SchemaDump";
 
 export class SchemaEditor {
 
@@ -61,9 +62,6 @@ export class SchemaEditor {
             schemaTable.push([row.name, row.currentVersion, latestDisplay]);
         }
         console.log(table(schemaTable));
-        
-        // Use base36 encoding to shorten the current date string for directory naming
-        // 
 
         const schemaOption = await select({
             message: "Select a schema to update",
@@ -80,12 +78,7 @@ export class SchemaEditor {
         }
 
         if (schemaOption === "__dump__") {
-            const currentTime = Math.floor((Date.now() - new Date("2020-01-01").getTime()) / 1000).toString(36);
-            const dumpPath = path.join(getFileContextFolderPath(ctx.folders.rootDir, file.relativePath), `schemas_dump_${currentTime}`) ;
-            log.info(`Dumping all schemas to: ${dumpPath}`);
-            mkdirSync(dumpPath, { recursive: true });
-
-            await db.dumpSchemas(dumpPath);
+            this.dumpSchemas(ctx, file, db);
             return;
         }
 
@@ -98,6 +91,33 @@ export class SchemaEditor {
             await this.importMultipleSchemas(db, schemaInfoMap);
             return;
         }
+    }
+
+    private static dumpSchemas(ctx: Context, file: WorkspaceFile, db: UnifiedDb): void {
+        const innerDb = db.innerDb;
+        if (!(innerDb instanceof IModelDb)) {
+            log.error("Dumping schemas requires an iModel.");
+            return;
+        }
+
+        const contextFolder = getFileContextFolderPath(ctx.folders.rootDir, file.relativePath);
+        let dumpPath = path.join(contextFolder, getSchemaDumpFolderName(innerDb));
+        if (existsSync(dumpPath))
+            dumpPath = path.join(contextFolder, getSchemaDumpFolderName(innerDb) + "_" + Date.now().toString(36));
+
+        log.info(`Dumping all schemas to: ${formatPath(dumpPath)}`);
+        const manifest = db.dumpSchemas(dumpPath);
+        const written = manifest.schemas.filter(s => s.fileName !== undefined);
+        const fallbacks = written.filter(s => s.originalECXmlVersion !== s.writtenECXmlVersion);
+        const failed = manifest.schemas.filter(s => s.error !== undefined);
+
+        log.success(`Wrote ${written.length} of ${manifest.schemas.length} schemas and ${schemaDumpManifestFileName}.`);
+        if (fallbacks.length > 0) {
+            const summary = fallbacks.map(s => `${s.name} (${s.originalECXmlVersion ?? "?"} -> ${s.writtenECXmlVersion})`).join(", ");
+            log.info(`Written with a different EC XML version than originally imported: ${summary}`);
+        }
+        for (const schema of failed)
+            log.error(`Failed to write ${schema.name}: ${schema.error}`);
     }
 
     private static async importSingleSchema(db: UnifiedDb, schemaInfoMap: Record<string, SchemaInfo>): Promise<void> {

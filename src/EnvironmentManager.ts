@@ -1,4 +1,4 @@
-import { select } from "@clack/prompts";
+import { select, type CANCEL_SYMBOL } from "@clack/prompts";
 import { IModelHost } from "@itwin/core-backend";
 import { IModelsClient, IModelsClientOptions } from "@itwin/imodels-client-authoring";
 import { ITwinsClient } from "@itwin/itwins-client";
@@ -162,7 +162,7 @@ export class EnvironmentManager {
         return this._iTwinsClient;
     }
 
-    public async promptEnvironment() : Promise<Environment | symbol> {
+    public async promptEnvironment() : Promise<Environment | typeof CANCEL_SYMBOL> {
         return await select({
             message: "Select an environment",
             options: [

@@ -1,10 +1,11 @@
-import { select, isCancel, log } from "@clack/prompts"
+import { select, isCancel, log, type CANCEL_SYMBOL } from "@clack/prompts"
 import { BriefcaseDb, ECDb, ECDbOpenMode, ECSqlStatement, IModelDb, SnapshotDb, SQLiteDb, SqliteStatement, StandaloneDb } from "@itwin/core-backend";
 import { ECSqlReader, QueryBinder, QueryOptions } from "@itwin/core-common";
 import { OpenMode } from "@itwin/core-bentley";
 import { IModelConfig } from "./IModelConfig";
 import { Context, WorkspaceFile } from "./Context";
 import path from "path";
+import { dumpSchemas, type SchemaDumpManifest } from "./Logic/SchemaDump";
 
 /**
  * Common interface for all DB implementations.
@@ -95,10 +96,9 @@ export class UnifiedDb implements Disposable {
         return this.db instanceof IModelDb;
     }
 
-    public async dumpSchemas(dir: string) : Promise<void> {
+    public dumpSchemas(dir: string): SchemaDumpManifest {
         if (this.db instanceof IModelDb) {
-            await this.db.exportSchemas(dir);
-            return;
+            return dumpSchemas(this.db, dir);
         }
         throw new Error("Dumping schemas is not implemented by this DB type (native addon wants at least DgnDb for this). Try StandaloneDb.");
     }
@@ -135,9 +135,6 @@ export class UnifiedDb implements Disposable {
         }
 
         if (this.db instanceof ECDb) {
-            if(this.db.isOpen) {
-                this.db.closeDb();
-            }
             this.db[Symbol.dispose]();
             return;
         }
@@ -154,7 +151,7 @@ export class UnifiedDb implements Disposable {
 /**
  * Factory and opener functions for each DB type.
  */
-export async function openECDb(path: string): Promise<UnifiedDb | symbol> {
+export async function openECDb(path: string): Promise<UnifiedDb | typeof CANCEL_SYMBOL> {
     const mode = await promptECDbOpenMode();
     if (isCancel(mode)) {
         return mode; // User cancelled the prompt
@@ -170,7 +167,7 @@ export function createECDb(path: string): UnifiedDb {
     return new UnifiedDb(db);
 }
 
-export async function openStandaloneDb(path: string): Promise<UnifiedDb | symbol> {
+export async function openStandaloneDb(path: string): Promise<UnifiedDb | typeof CANCEL_SYMBOL> {
     const mode = await promptOpenMode();
     if (isCancel(mode)) {
         return mode; // User cancelled the prompt
@@ -179,7 +176,7 @@ export async function openStandaloneDb(path: string): Promise<UnifiedDb | symbol
     return new UnifiedDb(db);
 }
 
-export async function openSnapshotDb(path: string): Promise<UnifiedDb | symbol> {
+export async function openSnapshotDb(path: string): Promise<UnifiedDb | typeof CANCEL_SYMBOL> {
     const db = SnapshotDb.openFile(path);
     return new UnifiedDb(db);
 }
@@ -189,7 +186,7 @@ export function createStandaloneDb(path: string, rootSubject: string): UnifiedDb
     return new UnifiedDb(db);
 }
 
-export async function openBriefcaseDb(ctx: Context, file: WorkspaceFile, config: IModelConfig): Promise<UnifiedDb | symbol> {
+export async function openBriefcaseDb(ctx: Context, file: WorkspaceFile, config: IModelConfig): Promise<UnifiedDb | typeof CANCEL_SYMBOL> {
     if (config === undefined) {
         throw new Error(`No iModel config found for file ${file.relativePath}. This file should exist for pulled imodels.`);
     }
@@ -197,6 +194,9 @@ export async function openBriefcaseDb(ctx: Context, file: WorkspaceFile, config:
     await ctx.envManager.selectEnvironment(config.environment);
     await ctx.envManager.signInIfNecessary();
     const mode = await promptOpenMode();
+    if (isCancel(mode)) {
+        return mode;
+    }
     const db = await BriefcaseDb.open({ fileName: absolutePath, key: config.iModelId, readonly: mode === OpenMode.Readonly });
     if(db.iModelId !== config.iModelId) {
         log.warn(`The iModel ID in the config (${config.iModelId}) does not match the opened iModel ID (${db.iModelId}). This may indicate a mismatch between the config and the file.`);
@@ -204,7 +204,7 @@ export async function openBriefcaseDb(ctx: Context, file: WorkspaceFile, config:
     return new UnifiedDb(db);
 }
 
-async function promptECDbOpenMode(): Promise<ECDbOpenMode | symbol> {
+async function promptECDbOpenMode(): Promise<ECDbOpenMode | typeof CANCEL_SYMBOL> {
     return await select({
         message: 'Select the open mode for the file',
         options: [
@@ -215,7 +215,7 @@ async function promptECDbOpenMode(): Promise<ECDbOpenMode | symbol> {
     });
 }
 
-async function promptOpenMode(): Promise<OpenMode | symbol> {
+async function promptOpenMode(): Promise<OpenMode | typeof CANCEL_SYMBOL> {
     return await select({
         message: 'Select the open mode for the file',
         options: [

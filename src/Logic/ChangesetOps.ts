@@ -75,3 +75,56 @@ export async function writeChangesetListToFile(ctx: Context, file: WorkspaceFile
     const changesetListFile = path.join(changesetsDir, "changeset-list.json");
     await fs.writeFile(changesetListFile, JSON.stringify(changesetList, null, 2), 'utf-8');
 }
+
+const changesetTypeFlagLabels: Array<[ContainingChanges, string]> = [
+    [ContainingChanges.Definition, "Definition"],
+    [ContainingChanges.SpatialData, "Spatial"],
+    [ContainingChanges.SheetsAndDrawings, "Sheets/Drawings"],
+    [ContainingChanges.ViewsAndModels, "Views/Models"],
+    [ContainingChanges.GlobalProperties, "GlobalProps"],
+];
+
+/** Hub sets the Schema flag together with SchemaSync for changesets pushed by SchemaSync. */
+export function isSchemaChangeset(containingChanges: number): boolean {
+    return (containingChanges & (ContainingChanges.Schema | ContainingChanges.SchemaSync)) !== 0;
+}
+
+/** Turns iModelHub's containingChanges flags into short labels. Unknown flags are shown as hex. */
+export function describeChangesetType(containingChanges: number): string[] {
+    if (containingChanges === ContainingChanges.Regular)
+        return ["Data"];
+
+    const labels: string[] = [];
+    let remainingFlags = containingChanges;
+    if ((remainingFlags & ContainingChanges.SchemaSync) !== 0) {
+        labels.push("SchemaSync");
+        remainingFlags &= ~(ContainingChanges.SchemaSync | ContainingChanges.Schema);
+    } else if ((remainingFlags & ContainingChanges.Schema) !== 0) {
+        labels.push("Schema");
+        remainingFlags &= ~ContainingChanges.Schema;
+    }
+
+    for (const [flag, label] of changesetTypeFlagLabels) {
+        if ((remainingFlags & flag) !== 0) {
+            labels.push(label);
+            remainingFlags &= ~flag;
+        }
+    }
+
+    if (remainingFlags !== 0)
+        labels.push(`0x${(remainingFlags >>> 0).toString(16)}`);
+    return labels;
+}
+
+/** Parses "900-950" or "900" into an inclusive index range. */
+export function parseChangesetIndexRange(input: string): { first: number; last: number } | undefined {
+    const match = /^\s*(\d+)\s*(?:-\s*(\d+)\s*)?$/.exec(input);
+    if (!match)
+        return undefined;
+
+    const first = Number(match[1]);
+    const last = match[2] === undefined ? first : Number(match[2]);
+    if (!Number.isSafeInteger(first) || !Number.isSafeInteger(last) || last < first)
+        return undefined;
+    return { first, last };
+}

@@ -290,16 +290,18 @@ describe("UnifiedDb", () => {
       fs.mkdirSync(outDir, { recursive: true });
 
       using db = createStandaloneDb(dbPath, "DumpTest");
-      await expect(db.dumpSchemas(outDir)).resolves.not.toThrow();
-      // StandaloneDb should have at least BisCore exported
+      const manifest = db.dumpSchemas(outDir);
+      expect(manifest.schemas.filter(s => s.error !== undefined)).toEqual([]);
       const exported = fs.readdirSync(outDir);
-      expect(exported.length).toBeGreaterThan(0);
+      expect(exported).toContain("manifest.json");
+      for (const schema of manifest.schemas)
+        expect(exported).toContain(schema.fileName);
     });
 
     it("dumpSchemas throws on ECDb", async () => {
       const dbPath = path.join(getTestDir(), "dump-ecdb-fail.ecdb");
       using db = createECDb(dbPath);
-      await expect(db.dumpSchemas("/tmp")).rejects.toThrow("not implemented");
+      expect(() => db.dumpSchemas("/tmp")).toThrow("not implemented");
     });
   });
 });

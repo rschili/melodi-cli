@@ -89,7 +89,9 @@ Next TODO:
 - [ ] Remove local working directory use global workspace instead
 - [ ] Remove database API selection step, use a Unified DB approach and auto selection
 - [x] Apply Changesets
-- [ ] Named Versions
+- [x] Named Versions
+- [x] Download at any changeset (nearest checkpoint + changesets)
+- [x] Export empty standalone copy (schemas and mappings only)
 - [x] Sqlite queries
 - [x] Schema Management / Schema Import
 - [x] Troubleshooter / integrity checker

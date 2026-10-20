@@ -1,16 +1,21 @@
 import chalk from "chalk";
 import { stdin, stdout } from 'node:process';
 import { createInterface } from "node:readline/promises";
-import { formatWarning, logError, printError } from "../ConsoleHelper";
+import { formatPath, formatWarning, logError, printError } from "../ConsoleHelper";
 import { UnifiedDb } from "../UnifiedDb";
 import { saveCommandHistory, Context, WorkspaceFile } from "../Context";
-import { log, select, isCancel } from "@clack/prompts"
+import { log, select, isCancel, text, spinner } from "@clack/prompts"
+import { IModelDb } from "@itwin/core-backend";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { SchemaEditor } from "./SchemaEditor";
 import { DbSettings } from "./DbSettings";
 import { McpServerHost } from "./McpServer";
 import { executeAndPrintQuery, executeAndPrintSqliteQuery } from "./QueryRunner";
 import { ChangesetEditor } from "./Changesets";
 import { Troubleshooter } from "./Troubleshooter";
+import { exportEmptyStandaloneCopy } from "./EmptyStandaloneExport";
+import { formatSize } from "./ChangesetList";
 
 export class DbEditor {
     public static async run(ctx: Context, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
@@ -28,6 +33,7 @@ export class DbEditor {
                 ...(db.supportsECSql ? [{ label: "Host MCP (Http)", value: "MCP" }] : []),
                 ...(db.supportsSchemas ? [{ label: "Schemas", value: "Schemas" }] : []),
                 ...(db.supportsChangesets ? [{ label: "Changesets", value: "Changesets" }] : []),
+                ...(db.innerDb instanceof IModelDb ? [{ label: "Export empty standalone copy", value: "EmptyCopy", hint: "keeps schemas and mappings, deletes data" }] : []),
                 { label: "Troubleshoot", value: "Troubleshoot", hint: "FK violations, integrity checks" },
                 { label: `Settings (Experimental features enabled: ${experimentalEnabled ? chalk.greenBright('true') : chalk.redBright('false')})`, value: "Settings" },
                 { label: "Close", value: "Close" }
@@ -65,6 +71,9 @@ export class DbEditor {
                     case "Changesets":
                         await ChangesetEditor.run(ctx, file, db);
                         break;
+                    case "EmptyCopy":
+                        await this.exportEmptyCopy(ctx, file, db);
+                        break;
                     case "Troubleshoot":
                         await Troubleshooter.run(ctx, file, db);
                         break;
@@ -75,6 +84,44 @@ export class DbEditor {
             } catch (error: unknown) {
                 logError(error);
             }
+        }
+    }
+
+    static async exportEmptyCopy(ctx: Context, file: WorkspaceFile, db: UnifiedDb): Promise<void> {
+        const source = db.innerDb;
+        if (!(source instanceof IModelDb))
+            return;
+
+        const parsed = path.parse(file.relativePath);
+        const changesetIndex = source.changeset.index;
+        const suggestedName = path.join(parsed.dir, `${parsed.name}${changesetIndex ? `_cs${changesetIndex}` : ""}_empty`);
+        const fileName = await text({
+            message: "Name for the empty standalone copy (without extension):",
+            initialValue: suggestedName,
+            validate: (value) => {
+                if (!value?.trim())
+                    return "Please enter a name.";
+                if (existsSync(path.join(ctx.folders.rootDir, value.trim() + ".bim")))
+                    return "A file with this name already exists.";
+                return undefined;
+            },
+        });
+        if (isCancel(fileName))
+            return;
+
+        const targetPath = path.join(ctx.folders.rootDir, fileName.trim() + ".bim");
+        const loader = spinner();
+        loader.start("Exporting empty standalone copy...");
+        try {
+            const result = await exportEmptyStandaloneCopy(source, targetPath, (message) => loader.message(message));
+            loader.stop(`Created ${formatPath(targetPath)} (${formatSize(result.fileSizeBytes)}).`);
+            const deletedRows = result.clearedTables.reduce((sum, table) => sum + table.deletedRows, 0);
+            log.info(`Deleted ${deletedRows} rows from ${result.clearedTables.length} tables. Kept bootstrap elements/models and ${result.keptTables.join(", ")}.`);
+            if (result.removedSchemaSyncInfo)
+                log.warn("The source uses SchemaSync. The copy has SchemaSync disabled, so schema imports take the regular path.");
+        } catch (error: unknown) {
+            loader.stop("Export failed.");
+            throw error;
         }
     }
 

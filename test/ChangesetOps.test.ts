@@ -9,6 +9,9 @@ import {
   type ChangesetList,
   readChangesetListFromFile,
   writeChangesetListToFile,
+  describeChangesetType,
+  isSchemaChangeset,
+  parseChangesetIndexRange,
 } from "../src/Logic/ChangesetOps";
 import { getTestDir } from "./TestHelper";
 import type { Context, WorkspaceFile } from "../src/Context";
@@ -90,5 +93,21 @@ describe("ChangesetOps", () => {
 
     const folder = getChangesetsFolder(ctx, file);
     await fs.rm(folder, { recursive: true, force: true });
+  });
+
+  it("describes changeset types", () => {
+    expect(describeChangesetType(0)).toEqual(["Data"]);
+    expect(describeChangesetType(ContainingChanges.Schema)).toEqual(["Schema"]);
+    expect(describeChangesetType(ContainingChanges.Schema | ContainingChanges.SchemaSync)).toEqual(["SchemaSync"]);
+    expect(describeChangesetType(ContainingChanges.Schema | ContainingChanges.Definition | 0x100)).toEqual(["Schema", "Definition", "0x100"]);
+    expect(isSchemaChangeset(ContainingChanges.SchemaSync)).toBe(true);
+    expect(isSchemaChangeset(ContainingChanges.Definition | ContainingChanges.SpatialData)).toBe(false);
+  });
+
+  it("parses changeset index ranges", () => {
+    expect(parseChangesetIndexRange("900-950")).toEqual({ first: 900, last: 950 });
+    expect(parseChangesetIndexRange(" 12 ")).toEqual({ first: 12, last: 12 });
+    expect(parseChangesetIndexRange("950-900")).toBeUndefined();
+    expect(parseChangesetIndexRange("abc")).toBeUndefined();
   });
 });

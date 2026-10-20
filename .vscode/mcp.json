@@ -1,9 +1,9 @@
 {
 	"servers": {
-		"imodel-mcp": {
+		/*"imodel-mcp": {
 			"url": "http://127.0.0.1:30591/sse",
 			"type": "sse"
-		}
+		}*/
 	},
 	"inputs": []
 }

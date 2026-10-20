@@ -113,7 +113,7 @@ export function runIntegrityCheck(db: UnifiedDb): string[] {
 
 /** Run ECSql PRAGMA integrity_check and return the result rows. */
 export async function runEcsqlIntegrityCheck(db: UnifiedDb): Promise<string[]> {
-    const reader = db.createQueryReader("PRAGMA integrity_check");
+    const reader = db.createQueryReader("PRAGMA integrity_check ECSQLOPTIONS enable_experimental_features");
     const rows = await reader.toArray();
     return rows.map(row => {
         const values = row as unknown[];

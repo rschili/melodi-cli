@@ -1,3 +1,14 @@
+# 1.8.0 (2026-10-20)
+- Download an iModel at any changeset index: melodi downloads the nearest checkpoint and applies the remaining changesets, and tells you how many that will be
+- Optionally list schema changesets before choosing the index to download
+- No longer offers to download the full changeset history after downloading an iModel
+- Add "List remote changesets" to the changeset menu, showing the changeset type (Schema, SchemaSync, Data, ...) for schema changesets, the next 50 changesets, or an index range
+- Add "Export empty standalone copy": copies an iModel into a standalone file and deletes the contents of all data tables while keeping schemas, mappings, file properties, CodeSpecs and the bootstrap elements/models. SchemaSync is disabled in the copy
+- Schema dump writes each schema separately and continues past failures, writes a manifest.json with the changeset and EC XML versions, and names the folder after the changeset index
+- Fix ECSql PRAGMA integrity_check in the troubleshooter
+- Fix ECDb being closed twice on dispose
+- Update dependencies (iTwin.js 5.14.3, TypeScript 6, vitest 5, chalk 6, itwins-client 3)
+
 # 1.7.0 (2026-03-18)
 - Add SQLite query editor alongside ECSql in the DB editor
 - Add Troubleshooter for diagnosing FK constraint violations and integrity issues in BriefcaseDb

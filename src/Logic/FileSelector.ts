@@ -2,7 +2,7 @@ import { detectFiles, Context, WorkspaceFile } from "../Context";
 import { NewFile } from "./NewFile";
 import { printError } from "../ConsoleHelper";
 import { Logger } from "../Logger";
-import { intro, outro, spinner, log, select, Option, isCancel } from "@clack/prompts"
+import { intro, outro, spinner, log, select, Option, isCancel, type CANCEL_SYMBOL } from "@clack/prompts"
 import { openBriefcaseDb, openECDb, openSnapshotDb, openStandaloneDb, UnifiedDb } from "../UnifiedDb";
 import path from "path";
 import { DbEditor } from "./DbEditor";
@@ -105,7 +105,7 @@ export class FileSelector {
         return true; // re-run the loop after file actions
     }
 
-    static async openDb(ctx: Context, file: WorkspaceFile): Promise<UnifiedDb | symbol> {
+    static async openDb(ctx: Context, file: WorkspaceFile): Promise<UnifiedDb | typeof CANCEL_SYMBOL> {
         const absolutePath = path.join(ctx.folders.rootDir, file.relativePath);
         if(file.ecDbVersion === undefined) {
             throw new Error("The selected DB type (sqlite) is not supported in this version of the tool.");

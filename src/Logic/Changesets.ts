@@ -10,6 +10,7 @@ import {
     downloadedChangesetsToChangesetList,
     writeChangesetListToFile,
 } from "./ChangesetOps";
+import { listRemoteChangesets } from "./ChangesetList";
 
 // Re-export types and schema for backward compatibility
 export { ChangesetListSchema, type ChangesetList } from "./ChangesetOps";
@@ -62,13 +63,14 @@ export class ChangesetEditor {
 
             log.info(`Current changeset: index ${chalk.bold(currentIndex)}, id ${chalk.dim(currentId)}`);
 
-            const options: { label: string; value: string }[] = [];
+            const options: { label: string; value: string; hint?: string }[] = [];
             if (!db.isReadOnly) {
                 options.push({ label: "Pull to latest", value: "pull-latest" });
                 options.push({ label: "Pull to specific index", value: "pull-index" });
             } else {
                 options.push({ label: chalk.dim("Pull requires read-write mode"), value: "readonly-hint" });
             }
+            options.push({ label: "List remote changesets", value: "list", hint: "shows schema changesets" });
             options.push({ label: "Show remote changeset info", value: "remote-info" });
             options.push({ label: "(Back)", value: "back" });
 
@@ -86,7 +88,9 @@ export class ChangesetEditor {
             }
 
             try {
-                if (action === "remote-info") {
+                if (action === "list") {
+                    await listRemoteChangesets(ctx, briefcaseDb.iModelId, currentIndex);
+                } else if (action === "remote-info") {
                     await this.showRemoteInfo(ctx, briefcaseDb);
                 } else if (action === "pull-latest") {
                     await this.pullChanges(briefcaseDb);

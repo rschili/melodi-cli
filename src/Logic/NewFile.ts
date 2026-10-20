@@ -1,10 +1,10 @@
 import { Context, WorkspaceFile } from "../Context";
-import { log, select, text, isCancel, tasks, Option, spinner, confirm } from "@clack/prompts";
+import { log, select, text, isCancel, tasks, Option, spinner, confirm, type CANCEL_SYMBOL } from "@clack/prompts";
 import type { ITwinMinimal } from "@itwin/itwins-client";
 import chalk from "chalk";
 import { generateColorizerMap, logError } from "../ConsoleHelper";
 import { Guid } from "@itwin/core-bentley";
-import { MinimalIModel, MinimalNamedVersion } from "@itwin/imodels-client-management";
+import type { Checkpoint, MinimalIModel, MinimalNamedVersion } from "@itwin/imodels-client-management";
 import { existsSync } from "node:fs";
 import { createECDb, createStandaloneDb, openBriefcaseDb } from "../UnifiedDb";
 import { DbEditor } from "./DbEditor";
@@ -14,8 +14,8 @@ import { applicationVersion } from "../Diagnostics";
 import { CheckpointManager, ProgressStatus } from "@itwin/core-backend";
 import path from "path";
 import { ChangesetIdWithIndex } from "@itwin/core-common";
-import { Changesets } from "./Changesets";
-import { calculateOverallFileSize } from "./ChangesetOps";
+import { calculateOverallFileSize, isSchemaChangeset } from "./ChangesetOps";
+import { formatSize, printChangesetTable, queryLatestChangesetIndex, queryRemoteChangesets } from "./ChangesetList";
 
 export class NewFile {
     public static async run(ctx: Context): Promise<void> {
@@ -236,52 +236,17 @@ export class NewFile {
             displayName: imodel.displayName ?? imodel.name ?? imodel.id,
         }
 
-        const namedVersionsIterator = envManager.iModelsClient.namedVersions.getMinimalList({
-            authorization: authCallback,
-            iModelId: iModelId!,
-        });
-        const namedVersionChoices: Option<MinimalNamedVersion>[] = [];
-        for await (const nv of namedVersionsIterator) {
-            namedVersionChoices.push({
-                label: `${chalk.bold(nv.displayName)} (Changeset Index: ${nv.changesetIndex}, Changeset ID: ${nv.changesetId})`,
-                value: nv,
-            });
+        const target = await this.selectDownloadTarget(ctx, imodel.id, imodel.displayName ?? imodel.id);
+        if (isCancel(target)) {
+            return; // User cancelled the prompt
         }
 
-        let selectedVersion: MinimalNamedVersion | "__seed__" | symbol = "__seed__";
-        if(namedVersionChoices.length === 0) {
-            log.info("There are no named versions for the selected iModel, so downloading seed.");
-        } else {
-            selectedVersion = await select<MinimalNamedVersion | "__seed__">({
-                message: "Select which version of the iModel to download",
-                options: [
-                    { label: "Seed iModel", value: "__seed__" },
-                    ...namedVersionChoices,
-                ],
-                maxItems: 20,
-            });
-            if(isCancel(selectedVersion)) {
-                return; // User cancelled the prompt
-            }
-        }
-
-        const selectedNamedVersion = selectedVersion === "__seed__" ? undefined : (selectedVersion as MinimalNamedVersion);
-
-        const checkpointId: ChangesetIdWithIndex = 
-            selectedNamedVersion === undefined || selectedNamedVersion.changesetId === null
-                ? { id: "" }
-                : { id: selectedNamedVersion.changesetId, index: selectedNamedVersion.changesetIndex };
-
-        const name = (selectedNamedVersion === undefined ? imodel.displayName : (selectedNamedVersion.displayName ?? imodel.displayName));
-
-        
-        let selectedName: string | symbol;
         let relativePath: string;
         let absolutePath: string;
         while (true) {
-            selectedName = await text({
+            const selectedName = await text({
                 message: "Enter a name for the downloaded iModel file (without extension):",
-                initialValue: name,
+                initialValue: target.suggestedName,
             });
 
             if (isCancel(selectedName)) {
@@ -297,25 +262,29 @@ export class NewFile {
             }
             break;
         }
+
         const loader = spinner();
         try {
-            loader.start("Downloading iModel file...");
+            loader.start("Downloading checkpoint...");
             await CheckpointManager.downloadCheckpoint({
                 localFile: absolutePath,
                 checkpoint: {
                     iTwinId: imodel.iTwinId,
-                    iModelId: iModelId!,
-                    changeset: checkpointId,
+                    iModelId: imodel.id,
+                    changeset: target.changeset,
                 },
                 onProgress: (loaded: number, total: number) => {
-                    if(loaded !== 0 && total > 0) {
-                        loader.message(`Downloading iModel file... ${(loaded / total * 100).toFixed(2)}%`);
+                    if (total > 0) {
+                        // Progress only covers the checkpoint transfer. Applying changesets afterwards reports nothing.
+                        loader.message(loaded < total
+                            ? `Downloading checkpoint... ${(loaded / total * 100).toFixed(2)}%`
+                            : "Checkpoint downloaded, applying changesets up to the requested index (if any)...");
                     }
                     return ProgressStatus.Continue;
                 }
             });
             await saveIModelConfig(ctx, relativePath, config);
-            loader.stop("Downloaded successful.");
+            loader.stop("Download successful.");
         }
         catch (error: unknown) {
             loader.stop("Failed to download iModel file.");
@@ -324,38 +293,97 @@ export class NewFile {
         }
 
         const wsFile: WorkspaceFile = { relativePath, lastTouched: new Date(), hasITwinId: true }
-
-        log.message("Checking for available changesets...");
-        const changesets = await envManager.iModelsClient.changesets.getMinimalList({
-            authorization: authCallback,
-            iModelId: iModelId!,
-        });
-        const changesetsArray = [];
-        for await (const cs of changesets) {
-            changesetsArray.push(cs);
-        }
-        const size = calculateOverallFileSize(changesetsArray);
-        if(changesetsArray.length > 0) {
-            const downloadChangesets = await confirm({
-                message: `Downloaded iModel has ${changesetsArray.length} changesets. Do you want to download them? (Total size to download: ${(size / (1024 * 1024)).toFixed(2)} MB)`,
-                initialValue: true,
-            });
-            if(isCancel(downloadChangesets)) {
-                return; // User cancelled the prompt
-            }
-
-            if(downloadChangesets) {
-                await Changesets.downloadChangesets(ctx, wsFile, iModelId!);
-            }
-
-        } else {
-            log.info("Downloaded iModel has no changesets available.");
-        }
-
         const db = await openBriefcaseDb(ctx, wsFile, config);
         if(isCancel(db)) {
             return; // User cancelled the prompt
         }
         await DbEditor.run(ctx, wsFile, db);
     }
+
+    private static async selectDownloadTarget(ctx: Context, iModelId: string, iModelName: string): Promise<DownloadTarget | typeof CANCEL_SYMBOL> {
+        const envManager = ctx.envManager;
+        const authorization = () => envManager.getAuthorization();
+
+        const namedVersionChoices: Option<MinimalNamedVersion>[] = [];
+        for await (const nv of envManager.iModelsClient.namedVersions.getMinimalList({ authorization, iModelId })) {
+            namedVersionChoices.push({
+                label: `${chalk.bold(nv.displayName)} (Changeset Index: ${nv.changesetIndex}, Changeset ID: ${nv.changesetId})`,
+                value: nv,
+            });
+        }
+
+        const selected = await select<MinimalNamedVersion | "seed" | "index">({
+            message: "Select which version of the iModel to download",
+            options: [
+                { label: "Seed iModel", value: "seed", hint: "before any changesets" },
+                { label: "Specific changeset index...", value: "index", hint: "nearest checkpoint, then applies changesets" },
+                ...namedVersionChoices,
+            ],
+            maxItems: 20,
+        });
+        if (isCancel(selected))
+            return selected;
+
+        if (selected === "seed")
+            return { changeset: { id: "", index: 0 }, suggestedName: iModelName };
+
+        if (selected !== "index") {
+            if (selected.changesetId === null || selected.changesetIndex === 0)
+                return { changeset: { id: "", index: 0 }, suggestedName: selected.displayName ?? iModelName };
+            return { changeset: { id: selected.changesetId, index: selected.changesetIndex }, suggestedName: selected.displayName ?? iModelName };
+        }
+
+        const latestIndex = await queryLatestChangesetIndex(ctx, iModelId);
+        const showSchemaChangesets = await confirm({
+            message: `The iModel has ${latestIndex} changesets. List schema changesets first? (reads the full changeset history)`,
+            initialValue: true,
+        });
+        if (isCancel(showSchemaChangesets))
+            return showSchemaChangesets;
+
+        if (showSchemaChangesets) {
+            const schemaChangesets = (await queryRemoteChangesets(ctx, iModelId)).filter(cs => isSchemaChangeset(cs.containingChanges));
+            printChangesetTable(schemaChangesets);
+            log.info("To reproduce a schema changeset, download the index before it.");
+        }
+
+        const indexInput = await text({
+            message: `Changeset index to download (0-${latestIndex}):`,
+            validate: (value) => {
+                const index = Number(value?.trim());
+                return Number.isSafeInteger(index) && index >= 0 && index <= latestIndex ? undefined : `Enter a number between 0 and ${latestIndex}.`;
+            },
+        });
+        if (isCancel(indexInput))
+            return indexInput;
+
+        const index = Number(indexInput.trim());
+        if (index === 0)
+            return { changeset: { id: "", index: 0 }, suggestedName: iModelName };
+
+        const changeset = await envManager.iModelsClient.changesets.getSingle({ authorization, iModelId, changesetIndex: index });
+        await this.logCheckpointDistance(ctx, iModelId, index, () => changeset.getCurrentOrPrecedingCheckpoint());
+        return { changeset: { id: changeset.id, index }, suggestedName: `${iModelName}_cs${index}` };
+    }
+
+    /** Tells the user how many changesets have to be applied on top of the nearest checkpoint. Informational only. */
+    private static async logCheckpointDistance(ctx: Context, iModelId: string, index: number, getCheckpoint: () => Promise<Checkpoint | undefined>): Promise<void> {
+        try {
+            const checkpoint = await getCheckpoint();
+            const checkpointIndex = checkpoint?.changesetIndex ?? 0;
+            if (checkpointIndex >= index) {
+                log.info(`A checkpoint exists for changeset ${index}.`);
+                return;
+            }
+            const changesetsToApply = await queryRemoteChangesets(ctx, iModelId, { first: checkpointIndex + 1, last: index });
+            log.info(`Nearest checkpoint is at index ${checkpointIndex}. ${changesetsToApply.length} changeset(s) (${formatSize(calculateOverallFileSize(changesetsToApply))}) will be applied after downloading it.`);
+        } catch (error: unknown) {
+            log.warn(`Could not determine the nearest checkpoint: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
 }
+
+type DownloadTarget = {
+    changeset: ChangesetIdWithIndex;
+    suggestedName: string;
+};
