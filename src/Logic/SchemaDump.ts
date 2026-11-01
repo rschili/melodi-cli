@@ -12,36 +12,7 @@ export type SchemaDumpEntry = {
     originalECXmlVersion?: string;
     writtenECXmlVersion?: string;
     fileName?: string;
-    error?: string;
-};
-
-export type SchemaDumpManifest = {
-    iModelId: string;
-    changeset?: { id: string; index?: number };
-    exportedAt: string;
-    schemas: SchemaDumpEntry[];
-};
-
-export const schemaDumpManifestFileName = "manifest.json";
-
-/**
- * Native serialization only supports writing 3.1 and later as-is. Schemas originally imported from 2.0/3.0 XML are
- * stored converted, so they are written as 3.2, the same rule native `exportSchemas` applies.
- * Later entries are fallbacks if serialization at the preferred version fails.
- */
-export function getECXmlVersionsToTry(originalMajor: number | undefined, originalMinor: number | undefined): ECXmlVersion[] {
-    const versions: ECXmlVersion[] = [];
-    if (originalMajor === 3 && originalMinor !== undefined && originalMinor >= 1)
-        versions.push({ readVersion: 3, writeVersion: originalMinor });
-
-    for (const fallback of [{ readVersion: 3, writeVersion: 2 }, { readVersion: 3, writeVersion: 1 }]) {
-        if (!versions.some(v => v.readVersion === fallback.readVersion && v.writeVersion === fallback.writeVersion))
-            versions.push(fallback);
-    }
-    return versions;
-}
-
-/** Folder name for a schema dump, based on the changeset the iModel is at. */
+    error?: stringModel is at. */
 export function getSchemaDumpFolderName(db: IModelDb, now: Date = new Date()): string {
     const timestamp = Math.floor((now.getTime() - new Date("2020-01-01").getTime()) / 1000).toString(36);
     const changesetIndex = getChangesetIndex(db);

@@ -16,6 +16,57 @@ export const ChangesetListSchema = z.array(z.object({
     fileSize: z.number(),
     relativePath: z.string().optional(),
 }));
+z.infer<typeof ChangesetListSchema>;
+
+export function getChangesetsFolder(ctx: Context, file: WorkspaceFile): string {
+    const contextFolder = getFileContextFolderPath(ctx.folders.rootDir, file.relativePath);
+    return path.join(contextFolder, "changesets");
+}
+
+export function getChangesetRelativePath(ctx: Context, file: WorkspaceFile, absolutePath: string): string {
+    const changesetsDir = getChangesetsFolder(ctx, file);
+    if (!absolutePath.startsWith(changesetsDir))
+        throw new Error(`Absolute path ${absolutePath} does not start with changesets directory ${changesetsDir}`);
+
+    const relativePath = path.relative(changesetsDir, absolutePath);
+    if (!relativePath)
+        throw new Error(`Could not determine relative path for ${absolutePath} in changesets directory ${changesetsDir}`);
+
+    return relativePath;
+}
+
+export function calculateOverallFileSize(changesets: MinimalChangeset[]): number {
+    return changesets.reduce((total, changeset) => total + (changeset.fileSize || 0), 0);
+}
+
+export function downloadedChangesetsToChangesetList(ctx: Context, file: WorkspaceFile, downloadedChangesets: DownloadedChangeset[]): ChangesetList {
+    return downloadedChangesets.map(changeset => ({
+        id: changeset.id,z.infer<typeof ChangesetListSchema>;
+
+export function getChangesetsFolder(ctx: Context, file: WorkspaceFile): string {
+    const contextFolder = getFileContextFolderPath(ctx.folders.rootDir, file.relativePath);
+    return path.join(contextFolder, "changesets");
+}
+
+export function getChangesetRelativePath(ctx: Context, file: WorkspaceFile, absolutePath: string): string {
+    const changesetsDir = getChangesetsFolder(ctx, file);
+    if (!absolutePath.startsWith(changesetsDir))
+        throw new Error(`Absolute path ${absolutePath} does not start with changesets directory ${changesetsDir}`);
+
+    const relativePath = path.relative(changesetsDir, absolutePath);
+    if (!relativePath)
+        throw new Error(`Could not determine relative path for ${absolutePath} in changesets directory ${changesetsDir}`);
+
+    return relativePath;
+}
+
+export function calculateOverallFileSize(changesets: MinimalChangeset[]): number {
+    return changesets.reduce((total, changeset) => total + (changeset.fileSize || 0), 0);
+}
+
+export function downloadedChangesetsToChangesetList(ctx: Context, file: WorkspaceFile, downloadedChangesets: DownloadedChangeset[]): ChangesetList {
+    return downloadedChangesets.map(changeset => ({
+        id: changeset.id,
 
 export type ChangesetList = z.infer<typeof ChangesetListSchema>;
 

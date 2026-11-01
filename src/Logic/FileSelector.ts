@@ -120,28 +120,7 @@ export class FileSelector {
                 return openStandaloneDb(absolutePath);
             }
 
-            return openSnapshotDb(absolutePath);
-        }
-
-        return openBriefcaseDb(ctx, file, fileConfig);
-    }
-
-    static async showSettings(ctx: Context): Promise<void> {
-        while (true) {
-            const choice = await select<string>({
-                message: 'Select a setting to change',
-                options: [
-                    { label: "Logging: " + Logger.getCurrentLevelString(ctx.userConfig.logging), value: "logging" },
-                    { label: "(Back)", value: "exit" },
-                ],
-                maxItems: 10,
-            });
-
-            if (choice === "exit" || isCancel(choice)) {
-                return; // Exit settings menu
-            }
-
-            if (choice === "logging") {
+            return openSnapshotDb(
                 await Logger.configure(ctx);
                 return; //continue; So long as there is only one option, we can return here
             }
